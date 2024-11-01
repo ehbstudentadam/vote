@@ -1,3 +1,4 @@
+//ContractInteraction.test.js - Testing contract interaction flow within eachother
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
 
