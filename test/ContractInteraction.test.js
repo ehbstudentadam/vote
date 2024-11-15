@@ -33,9 +33,9 @@ describe("Contract Interactions Test Suite", function () {
 
         // Register instance and user
         console.log("Registering instance, user and walletUser in UserRegistration...");
-        await userRegistration.connect(deployer).registerInstance(instance1.address, "InstanceOrg", "contact@example.com");
-        await userRegistration.connect(deployer).registerUser(user1.address, "UserOne", 30, "user1@example.com");
-        await userRegistration.connect(deployer).registerUser(userWallet1.address, "UserWalletOne", 30, "userwallet1@example.com");
+        await userRegistration.connect(instance1).registerInstance(instance1.address, "InstanceOrg", "contact@example.com");
+        await userRegistration.connect(user1).registerUser(user1.address, "UserOne", 30, "user1@example.com");
+        await userRegistration.connect(userWallet1).registerUser(userWallet1.address, "UserWalletOne", 30, "userwallet1@example.com");
     });
 
     async function deployContract(contractName, ...args) {
@@ -47,13 +47,14 @@ describe("Contract Interactions Test Suite", function () {
     }
 
     async function assignRoles() {
+
         const roles = {
             USER_ROLE: await accessControlManager.USER_ROLE(),
             INSTANCE_ROLE: await accessControlManager.INSTANCE_ROLE(),
             ADMIN_ROLE: await accessControlManager.ADMIN_ROLE(),
             DISTRIBUTOR_ROLE: await accessControlManager.DISTRIBUTOR_ROLE()
         };
-
+        
         const contractsToAssignRoles = [
             { role: roles.USER_ROLE, address: await userRegistration.getAddress() },
             { role: roles.INSTANCE_ROLE, address: await userRegistration.getAddress() },

@@ -1,8 +1,9 @@
-// UserRegistration.sol - User Registration Smart Contract
+// UserRegistration.sol - User Registration Smart Contract Hardhat
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.27;
 
 import "./AccessControlManager.sol";
+import "hardhat/console.sol";
 
 contract UserRegistration {
     // Centralized access control contract reference
@@ -76,13 +77,13 @@ contract UserRegistration {
         uint256 age,
         string memory email
     ) external {
-        require(!accessControlManager.hasRole(accessControlManager.USER_ROLE(), msg.sender), "User already registered");
+        require(!accessControlManager.hasRoleForContract(accessControlManager.USER_ROLE(), msg.sender), "User already registered");
         require(age > 0, "Age must be positive");
         require(bytes(name).length > 0, "Name cannot be empty");
         require(bytes(email).length > 0, "Email cannot be empty");
 
         // Assign USER_ROLE to the user
-        accessControlManager.grantRoleToContract(accessControlManager.USER_ROLE(), user);
+        accessControlManager.grantRoleToWallet(accessControlManager.USER_ROLE(), user);
 
         // Store user information in the mapping
         users[user] = User(name, age, email, true);
@@ -100,15 +101,16 @@ contract UserRegistration {
         string memory organization,
         string memory contact
     ) external {
-        require(!accessControlManager.hasRole(accessControlManager.INSTANCE_ROLE(), instance), "Instance already registered");
+        require(!accessControlManager.hasRoleForContract(accessControlManager.INSTANCE_ROLE(), msg.sender), "Instance already registered");
         require(bytes(organization).length > 0, "Organization cannot be empty");
         require(bytes(contact).length > 0, "Contact cannot be empty");
 
         // Assign INSTANCE_ROLE to the instance
-        accessControlManager.grantRoleToContract(accessControlManager.INSTANCE_ROLE(), instance);
+        accessControlManager.grantRoleToWallet(accessControlManager.INSTANCE_ROLE(), instance);
 
         // Store instance information in the mapping
         instances[instance] = Instance(organization, contact, true);
+        console.log('userregistration contract');
         emit InstanceRegistered(instance, organization, contact);
     }
 
