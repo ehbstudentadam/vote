@@ -6,8 +6,7 @@ import "./Poll.sol";
 import "./TokenDistribution.sol";
 import "./AccessControlManager.sol";
 
-
-contract PollFactory{
+contract PollFactory {
     // Centralized access control contract reference
     AccessControlManager public accessControlManager;
 
@@ -24,6 +23,9 @@ contract PollFactory{
 
     // Array to track all polls created by the factory
     address[] public allPolls;
+
+    // Mapping to track polls created by each instance
+    mapping(address => address[]) public pollsByInstance;
 
     /**
      * @dev Modifier to restrict access to functions only for roles.
@@ -74,7 +76,11 @@ contract PollFactory{
         string memory location,
         uint256 minTokensRequired,
         uint256 totalTokenSupply
-    ) external onlyRoleFromManager(accessControlManager.INSTANCE_ROLE()) returns (address) {
+    )
+        external
+        onlyRoleFromManager(accessControlManager.INSTANCE_ROLE())
+        returns (address)
+    {
         require(bytes(title).length > 0, "Poll title is required");
         require(endDate > block.timestamp, "End date must be in the future");
         require(
@@ -84,7 +90,10 @@ contract PollFactory{
 
         // Ensure the PollFactory has the DISTRIBUTOR_ROLE to mint tokens
         require(
-            accessControlManager.hasRole(accessControlManager.DISTRIBUTOR_ROLE(), address(this)),
+            accessControlManager.hasRole(
+                accessControlManager.DISTRIBUTOR_ROLE(),
+                address(this)
+            ),
             "PollFactory: Missing DISTRIBUTOR_ROLE"
         );
 
@@ -106,6 +115,9 @@ contract PollFactory{
         // Track the newly created poll in the allPolls array
         allPolls.push(address(newPoll));
 
+        // Track the poll by the instance address
+        pollsByInstance[msg.sender].push(address(newPoll));
+
         // Emit the PollCreated event to log the poll creation
         emit PollCreated(address(newPoll), msg.sender, title, endDate);
 
@@ -120,5 +132,16 @@ contract PollFactory{
      */
     function getPollCount() external view returns (uint256) {
         return allPolls.length;
+    }
+
+    /**
+     * @dev Function to retrieve all polls created by a specific instance.
+     * @param instance The address of the instance to query.
+     * @return An array of poll addresses created by the instance.
+     */
+    function getPollsByInstance(
+        address instance
+    ) external view returns (address[] memory) {
+        return pollsByInstance[instance];
     }
 }

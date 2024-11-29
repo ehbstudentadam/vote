@@ -1,10 +1,11 @@
-// Subscription.sol - Subscription Contract
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.27;
 
 import "./AccessControlManager.sol";
 import "./TokenDistribution.sol";
 import "./Poll.sol";
+import "./UserRegistration.sol";
+import "hardhat/console.sol";
 
 contract Subscription {
     // Centralized access control contract reference
@@ -13,19 +14,15 @@ contract Subscription {
     // Reference to the Token Distribution contract
     TokenDistribution public tokenDistribution;
 
+    // Reference to the User Registration contract
+    UserRegistration public userRegistration;
+
     // Event emitted when a user successfully subscribes to a poll
     event UserSubscribed(
         address indexed user,
         address poll,
         uint256 tokenAmount
     );
-
-    // Struct to store eligibility criteria for each poll
-    struct EligibilityCriteria {
-        uint256 minAge;
-        string location;
-        uint256 minTokensRequired;
-    }
 
     /**
      * @dev Modifier to restrict access to functions only for roles.
@@ -40,17 +37,27 @@ contract Subscription {
 
     /**
      * @dev Constructor for Subscription contract.
-     * Initializes roles and connects the Token Distribution contract.
+     * Initializes roles and connects the Token Distribution and User Registration contracts.
      * The ADMIN_ROLE is granted to the deployer automatically.
      * @param _tokenDistribution Address of the TokenDistribution contract.
+     * @param _userRegistration Address of the UserRegistration contract.
      * @param _accessControlManager Address of the centralized AccessControlManager.
      */
-    constructor(address _tokenDistribution, address _accessControlManager) {
+    constructor(
+        address _tokenDistribution,
+        address _userRegistration,
+        address _accessControlManager
+    ) {
         require(
             _tokenDistribution != address(0),
             "Invalid token distribution address"
         );
+        require(
+            _userRegistration != address(0),
+            "Invalid user registration address"
+        );
         tokenDistribution = TokenDistribution(_tokenDistribution);
+        userRegistration = UserRegistration(_userRegistration);
 
         // Set the centralized access control manager
         accessControlManager = AccessControlManager(_accessControlManager);
@@ -60,40 +67,82 @@ contract Subscription {
      * @dev Subscribes a user to a poll if they meet eligibility requirements from the poll itself.
      * @param poll The address of the poll.
      * @param user The address of the user to subscribe.
-     * @param userAge The age of the user.
-     * @param userLocation The location of the user.
-     * @param userTokensAvailable The number of tokens the user has available.
      */
     function subscribeUser(
         address poll,
-        address user,
-        uint256 userAge,
-        string memory userLocation,
-        uint256 userTokensAvailable
+        address user
     ) external onlyRoleFromManager(accessControlManager.USER_ROLE()) {
+        // Check eligibility
+        require(
+            checkEligibility(poll, user),
+            "User does not meet eligibility requirements"
+        );
+
+        // Get the minimum tokens required for the poll
+        Poll pollContract = Poll(poll);
+        (, , uint256 minTokensRequired) = pollContract.getEligibility();
+
+        // Distribute tokens for the subscription
+        tokenDistribution.distributeTokens(user, poll, minTokensRequired);
+
+        emit UserSubscribed(user, poll, minTokensRequired);
+    }
+
+    /**
+     * @dev Checks if a user meets the eligibility requirements for a specific poll.
+     * @param poll The address of the poll.
+     * @param user The address of the user.
+     * @return bool Returns true if the user meets all eligibility criteria, false otherwise.
+     */
+    function checkEligibility(
+        address poll,
+        address user
+    ) public view returns (bool) {
         // Get eligibility requirements from the Poll contract
         Poll pollContract = Poll(poll);
         (
             uint256 minAge,
-            string memory requiredLocation,
+            ,
             uint256 minTokensRequired
         ) = pollContract.getEligibility();
 
-        // Check eligibility
-        require(userAge >= minAge, "User does not meet age requirement");
-        require(
-            keccak256(abi.encodePacked(userLocation)) ==
-                keccak256(abi.encodePacked(requiredLocation)),
-            "User location does not match"
-        );
-        require(
-            userTokensAvailable >= minTokensRequired,
-            "Not enough tokens to participate"
-        );
+        console.log("poll minAge:", minAge);
+        console.log("poll minTokensRequired:", minTokensRequired);
 
-        uint256 tokenAmount = minTokensRequired;
-        tokenDistribution.distributeTokens(user, poll, tokenAmount);
+        // Get user data from the UserRegistration contract
+        (
+            ,
+            uint256 age,
+            ,
+            bool isActive
+        ) = userRegistration.users(user);
 
-        emit UserSubscribed(user, poll, tokenAmount);
+        // Ensure the user is active
+        if (!isActive) {
+            console.log("not acitve");
+            return false;
+        }
+
+        // Check age requirement
+        if (age < minAge) {
+            console.log("age < minAge");
+            return false;
+        }
+
+        // Check location requirement
+        // if (
+        //     keccak256(abi.encodePacked(location)) !=
+        //     keccak256(abi.encodePacked(requiredLocation))
+        // ) {
+        //     return false;
+        // }
+
+        // Check token requirement
+        // uint256 userTokensAvailable = msg.sender.balance;
+        // if (userTokensAvailable < minTokensRequired) {
+        //     return false;
+        // }
+
+        return true;
     }
 }
