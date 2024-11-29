@@ -30,6 +30,7 @@
           <button type="submit">Register</button>
         </form>
         <p v-if="userError" class="error">{{ userError }}</p>
+        <p v-if="userSuccess" class="success">Voter registration successful!</p>
       </div>
 
       <div v-if="selectedOption === 'poll'" class="form">
@@ -46,7 +47,7 @@
           <button type="submit">Register</button>
         </form>
         <p v-if="instanceError" class="error">{{ instanceError }}</p>
-        <p v-if="success" class="success">Registration successful!</p>
+        <p v-if="success" class="success">Instance registration successful!</p>
       </div>
     </div>
   </div>
@@ -70,6 +71,7 @@ const userEmail = ref('');
 const orgName = ref('');
 const orgEmail = ref('');
 const userError = ref(null);
+const userSuccess = ref(false);
 const instanceError = ref(null);
 const success = ref(false);
 
@@ -81,34 +83,65 @@ const userRegistrationABI = UserRegistrationArtifact.abi;
 const router = useRouter();
 const { address, isConnected } = useAccount();
 
-
-// // Register User
-// const { writeAsync: writeUser } = useWriteContract({
-//   abi: userRegistrationABI,
-//   address: userRegistrationAddress,
-//   functionName: 'registerUser',
-// });
-
-// // Function to handle user registration
-// async function handleUserRegistration() {
-//   try {
-//     if (!isConnected.value) throw new Error('Wallet is not connected.');
-//     const tx = await writeUser({
-//       args: [userName.value, userAge.value, userEmail.value],
-//     });
-//     console.log('Transaction:', tx);
-//     router.push('/'); // Redirect on success
-//   } catch (err) {
-//     console.error('Failed to register user:', err.message);
-//   }
-// }
-
-// Setup the write contract hook
-const { writeContractAsync } = useWriteContract({
+// Setup the write contract hook for instance registration
+const { writeContractAsync: writeInstanceContract } = useWriteContract({
   address: userRegistrationAddress,
   abi: userRegistrationABI,
   functionName: 'registerInstance',
 });
+
+// Setup the write contract hook for user registration
+const { writeContractAsync: writeUserContract } = useWriteContract({
+  address: userRegistrationAddress,
+  abi: userRegistrationABI,
+  functionName: 'registerUser',
+});
+
+// Function to handle user registration
+async function handleUserRegistration() {
+  try {
+    userError.value = null;
+    success.value = false;
+
+    if (!isConnected.value) {
+      throw new Error('Wallet is not connected.');
+    }
+
+    // Validate inputs
+    if (!address.value) throw new Error('Wallet address is missing.');
+    if (!userName.value.trim()) throw new Error('Name is required.');
+    if (!userEmail.value.trim()) throw new Error('Email is required.');
+    const age = parseInt(userAge.value, 10);
+    if (isNaN(age) || age <= 0) throw new Error('Valid age is required.');
+
+    // Log inputs for debugging
+    console.log('Arguments:', {
+      user: address.value,
+      name: userName.value.trim(),
+      age: age,
+      email: userEmail.value.trim(),
+    });
+
+    // Perform the write operation
+    const tx = await writeUserContract({
+      address: userRegistrationAddress,
+      abi: userRegistrationABI,
+      functionName: 'registerUser',
+      args: [address.value, userName.value.trim(), age, userEmail.value.trim()],
+      gasLimit: 3000000, // Optional, based on the contract requirements
+    });
+
+    console.log('Transaction:', tx);
+    console.log('Transaction Hash:', tx.hash);
+
+    success.value = true;
+    router.push('/'); // Redirect on success
+  } catch (err) {
+    userError.value = err.message || 'Failed to register user';
+    console.error('Error in handleUserRegistration:', err);
+  }
+}
+
 
 // Function to handle instance registration
 async function handleInstanceRegistration() {
@@ -129,12 +162,8 @@ async function handleInstanceRegistration() {
     console.log('Organization Name:', orgName.value);
     console.log('Contact Email:', orgEmail.value);
 
-
     // Perform the write operation
-    const tx = await writeContractAsync({
-      address: userRegistrationAddress,
-      abi: userRegistrationABI,
-      functionName: 'registerInstance',
+    const tx = await writeInstanceContract({
       args: [address.value, orgName.value, orgEmail.value],
       gasLimit: 3000000,
     });
@@ -149,16 +178,13 @@ async function handleInstanceRegistration() {
   }
 }
 
-
 // Function to select registration option
 function selectOption(option) {
   if (selectedOption.value === option) {
-    // If the user clicks the already selected option, deselect it
-    selectedOption.value = null;
+    selectedOption.value = null; // Deselect if the same option is clicked
     resetFormFields();
   } else {
-    // If a different option is clicked, select it and reset form fields
-    selectedOption.value = option;
+    selectedOption.value = option; // Select the new option
     resetFormFields();
   }
 }
@@ -171,6 +197,7 @@ function resetFormFields() {
   orgName.value = '';
   orgEmail.value = '';
   userError.value = null;
+  userSuccess.value = false;
   instanceError.value = null;
   success.value = false;
 }

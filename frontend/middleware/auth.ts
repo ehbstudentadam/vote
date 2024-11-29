@@ -21,6 +21,7 @@ function checkRegistrationStatus(address: string): Promise<'user' | 'instance' |
       abi: UserRegistrationABI,
       functionName: 'isUser',
       args: [address],
+      account: address as `0x${string}`,
     })
       .then((isUser) => {
         if (isUser) {
@@ -37,6 +38,7 @@ function checkRegistrationStatus(address: string): Promise<'user' | 'instance' |
           abi: UserRegistrationABI,
           functionName: 'isInstance',
           args: [address],
+          account: address as `0x${string}`,
         })
           .then((isInstance) => {
             if (isInstance) {
@@ -56,6 +58,8 @@ function checkRegistrationStatus(address: string): Promise<'user' | 'instance' |
 export default defineNuxtRouteMiddleware(async (to) => {
   const { address, isConnected } = useAccount();
 
+  console.log('Connected address:', address.value);
+
   // Watch for wallet disconnection and redirect to the portal if disconnected
   watch(isConnected, (connected) => {
     if (!connected) {
@@ -68,6 +72,7 @@ export default defineNuxtRouteMiddleware(async (to) => {
     return navigateTo('/portal');
   }
 
+
   // If no address is available, redirect to the registration page
   if (!address.value) {
     return navigateTo('/portal');
@@ -76,16 +81,28 @@ export default defineNuxtRouteMiddleware(async (to) => {
   // Check registration status
   const status = await checkRegistrationStatus(address.value);
 
+  console.log('auth status: ', status)
+
   // Handle redirection based on the user status
   if (status === 'user' && to.path === '/register') {
-    return navigateTo('/'); // Redirect registered users to the dashboard
+    return navigateTo('/voter'); // Redirect registered users to the dashboard
   }
 
   if (status === 'instance' && to.path === '/register') {
-    return navigateTo('/'); // Redirect registered instances to their dashboard
+    return navigateTo('/dashboard/instance'); // Redirect registered instances to their dashboard
   }
 
   if (status === 'not-registered' && to.path !== '/register') {
     return navigateTo('/register'); // Redirect unregistered users to the registration page
   }
+
+  if (status === 'instance') {
+    return navigateTo('/dashboard/instance'); // Redirect registered users to the dashboard
+  }
+
+  if (status === 'user') {
+    return navigateTo('/dashboard/voter'); // Redirect registered users to the dashboard
+  }
+
+
 });
