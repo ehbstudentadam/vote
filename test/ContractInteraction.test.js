@@ -24,7 +24,7 @@ describe("Contract Interactions Test Suite", function () {
         accessControlManager = await deployContract("AccessControlManager");
         userRegistration = await deployContract("UserRegistration", await accessControlManager.getAddress());
         tokenDistribution = await deployContract("TokenDistribution", await accessControlManager.getAddress());
-        subscription = await deployContract("Subscription", await tokenDistribution.getAddress(), await accessControlManager.getAddress());
+        subscription = await deployContract("Subscription", await tokenDistribution.getAddress(),await userRegistration.getAddress(), await accessControlManager.getAddress());
         voting = await deployContract("Voting", await tokenDistribution.getAddress(), await accessControlManager.getAddress());
         pollFactory = await deployContract("PollFactory", await tokenDistribution.getAddress(), await accessControlManager.getAddress());
 
@@ -73,8 +73,8 @@ describe("Contract Interactions Test Suite", function () {
         }
     }
 
-    async function subscribeUserToPoll(user, pollAddress, age, location, tokensAvailable) {
-        await subscription.connect(user).subscribeUser(pollAddress, user.address, age, location, tokensAvailable);
+    async function subscribeUserToPoll(user, pollAddress) {
+        await subscription.connect(user).subscribeUser(pollAddress, user.address);
     }
 
     async function verifyUserSubscription(pollAddress, user, minTokensRequired) {
@@ -133,9 +133,9 @@ describe("Contract Interactions Test Suite", function () {
         };
     }
 
-    async function createPoll(instance, options, title, minTokensRequired, totalTokenSupply) {
+    async function createPoll(instance, options, title, age, location, minTokensRequired, totalTokenSupply) {
         const endDate = Math.floor(Date.now() / 1000) + 3600;
-        await pollFactory.connect(instance).createPoll(title, options, endDate, 18, "USA", minTokensRequired, totalTokenSupply);
+        await pollFactory.connect(instance).createPoll(title, options, endDate, age, location, minTokensRequired, totalTokenSupply);
         const pollAddress = await pollFactory.allPolls(0);
         return await ethers.getContractAt("Poll", pollAddress);
     }
@@ -149,30 +149,30 @@ describe("Contract Interactions Test Suite", function () {
     });
 
     it("Should allow an instance to create a poll", async function () {
-        const poll = await createPoll(instance1, ["Option1", "Option2"], "Sample Poll", 100, 1000);
+        const poll = await createPoll(instance1, ["Option1", "Option2"], "Sample Poll", 18, "belgium", 100, 1000);
         const [pollMinAge, pollLocation, pollMinTokensRequired] = await poll.getEligibility();
 
         expect(pollMinAge).to.equal(18);
-        expect(pollLocation).to.equal("USA");
+        expect(pollLocation).to.equal("belgium");
         expect(pollMinTokensRequired).to.equal(100);
     });
 
     it("Should allow a user to subscribe to a poll", async function () {
-        const poll = await createPoll(instance1, ["Option1", "Option2"], "Sample Poll", 100, 1000);
+        const poll = await createPoll(instance1, ["Option1", "Option2"], "Sample Poll", 18, "belgium", 100, 1000);
         const pollAddress = await poll.getAddress();
 
         const initialPollBalance = await tokenDistribution.balanceOf(pollAddress);
         expect(initialPollBalance).to.equal(1000);
 
-        await subscribeUserToPoll(userWallet1, pollAddress, 30, "USA", 100);
+        await subscribeUserToPoll(userWallet1, pollAddress);
         await verifyUserSubscription(pollAddress, userWallet1, 100);
     });
 
     it("Should allow a user to vote on a poll", async function () {
         // Create a new poll and subscribe user1 to it
-        const poll = await createPoll(instance1, ["Option1", "Option2"], "Sample Poll", 100, 1000);
+        const poll = await createPoll(instance1, ["Option1", "Option2"], "Sample Poll", 18, "belgium", 100, 1000);
         const pollAddress = await poll.getAddress();
-        await subscribeUserToPoll(userWallet1, pollAddress, 30, "USA", 100);
+        await subscribeUserToPoll(userWallet1, pollAddress);
 
         // Define vote details (which options and how many tokens to allocate)
         const voteOptions = { optionIndexes: [0, 1], amounts: [40, 60] };
