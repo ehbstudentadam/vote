@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
+//Subscription.sol
 pragma solidity ^0.8.27;
 
 import "./AccessControlManager.sol";
@@ -103,11 +104,7 @@ contract Subscription {
         (
             uint256 minAge,
             ,
-            uint256 minTokensRequired
         ) = pollContract.getEligibility();
-
-        console.log("poll minAge:", minAge);
-        console.log("poll minTokensRequired:", minTokensRequired);
 
         // Get user data from the UserRegistration contract
         (
@@ -128,7 +125,7 @@ contract Subscription {
             console.log("age < minAge");
             return false;
         }
-
+        
         // Check location requirement
         // if (
         //     keccak256(abi.encodePacked(location)) !=

@@ -25,7 +25,7 @@ async function main() {
 
   // Deploy Subscription
   const Subscription = await ethers.getContractFactory("Subscription");
-  const subscription = await Subscription.deploy(tokenDistribution.target, accessControlManager.target);
+  const subscription = await Subscription.deploy(tokenDistribution.target, userRegistration.target, accessControlManager.target);
   await subscription.waitForDeployment();
   console.log("Subscription deployed to:", subscription.target);
 

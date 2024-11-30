@@ -162,8 +162,12 @@ async function handleInstanceRegistration() {
     console.log('Organization Name:', orgName.value);
     console.log('Contact Email:', orgEmail.value);
 
+
     // Perform the write operation
     const tx = await writeInstanceContract({
+      address: userRegistrationAddress,
+      abi: userRegistrationABI,
+      functionName: 'registerInstance',
       args: [address.value, orgName.value, orgEmail.value],
       gasLimit: 3000000,
     });
