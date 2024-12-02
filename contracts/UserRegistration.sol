@@ -3,7 +3,6 @@
 pragma solidity ^0.8.27;
 
 import "./AccessControlManager.sol";
-import "hardhat/console.sol";
 
 contract UserRegistration {
     // Centralized access control contract reference
@@ -77,13 +76,22 @@ contract UserRegistration {
         uint256 age,
         string memory email
     ) external {
-        require(!accessControlManager.hasRoleForContract(accessControlManager.USER_ROLE(), msg.sender), "User already registered");
+        require(
+            !accessControlManager.hasRoleForContract(
+                accessControlManager.USER_ROLE(),
+                msg.sender
+            ),
+            "User already registered"
+        );
         require(age > 0, "Age must be positive");
         require(bytes(name).length > 0, "Name cannot be empty");
         require(bytes(email).length > 0, "Email cannot be empty");
 
         // Assign USER_ROLE to the user
-        accessControlManager.grantRoleToWallet(accessControlManager.USER_ROLE(), user);
+        accessControlManager.grantRoleToWallet(
+            accessControlManager.USER_ROLE(),
+            user
+        );
 
         // Store user information in the mapping
         users[user] = User(name, age, email, true);
@@ -101,16 +109,24 @@ contract UserRegistration {
         string memory organization,
         string memory contact
     ) external {
-        require(!accessControlManager.hasRoleForContract(accessControlManager.INSTANCE_ROLE(), msg.sender), "Instance already registered");
+        require(
+            !accessControlManager.hasRoleForContract(
+                accessControlManager.INSTANCE_ROLE(),
+                msg.sender
+            ),
+            "Instance already registered"
+        );
         require(bytes(organization).length > 0, "Organization cannot be empty");
         require(bytes(contact).length > 0, "Contact cannot be empty");
 
         // Assign INSTANCE_ROLE to the instance
-        accessControlManager.grantRoleToWallet(accessControlManager.INSTANCE_ROLE(), instance);
+        accessControlManager.grantRoleToWallet(
+            accessControlManager.INSTANCE_ROLE(),
+            instance
+        );
 
         // Store instance information in the mapping
         instances[instance] = Instance(organization, contact, true);
-        console.log('userregistration contract');
         emit InstanceRegistered(instance, organization, contact);
     }
 
@@ -120,7 +136,11 @@ contract UserRegistration {
      * @return bool True if the address is a registered user, otherwise false.
      */
     function isUser(address account) external view returns (bool) {
-        return accessControlManager.hasRoleForContract(accessControlManager.USER_ROLE(), account) && users[account].isActive;
+        return
+            accessControlManager.hasRoleForContract(
+                accessControlManager.USER_ROLE(),
+                account
+            ) && users[account].isActive;
     }
 
     /**
@@ -129,16 +149,28 @@ contract UserRegistration {
      * @return bool True if the address is a registered instance, otherwise false.
      */
     function isInstance(address account) external view returns (bool) {
-        return accessControlManager.hasRoleForContract(accessControlManager.INSTANCE_ROLE(), account) && instances[account].isActive;
+        return
+            accessControlManager.hasRoleForContract(
+                accessControlManager.INSTANCE_ROLE(),
+                account
+            ) && instances[account].isActive;
     }
 
     /**
-     * @dev Revokes a user’s access by removing USER_ROLE and marking them inactive. 
+     * @dev Revokes a user’s access by removing USER_ROLE and marking them inactive.
      * Only callable by ADMIN_ROLE.
      * @param user The address of the user to revoke.
      */
-    function revokeUser(address user) external onlyRoleFromManager(accessControlManager.ADMIN_ROLE()) {
-        require(accessControlManager.hasRoleForContract(accessControlManager.USER_ROLE(), user), "Address is not a registered user");
+    function revokeUser(
+        address user
+    ) external onlyRoleFromManager(accessControlManager.ADMIN_ROLE()) {
+        require(
+            accessControlManager.hasRoleForContract(
+                accessControlManager.USER_ROLE(),
+                user
+            ),
+            "Address is not a registered user"
+        );
 
         // Remove role and mark user as inactive
         accessControlManager.revokeRole(accessControlManager.USER_ROLE(), user);
@@ -150,11 +182,22 @@ contract UserRegistration {
      * Only callable by ADMIN_ROLE.
      * @param instance The address of the instance to revoke.
      */
-    function revokeInstance(address instance) external onlyRoleFromManager(accessControlManager.ADMIN_ROLE()) {
-        require(accessControlManager.hasRoleForContract(accessControlManager.INSTANCE_ROLE(), instance), "Address is not a registered instance");
+    function revokeInstance(
+        address instance
+    ) external onlyRoleFromManager(accessControlManager.ADMIN_ROLE()) {
+        require(
+            accessControlManager.hasRoleForContract(
+                accessControlManager.INSTANCE_ROLE(),
+                instance
+            ),
+            "Address is not a registered instance"
+        );
 
         // Remove role and mark instance as inactive
-        accessControlManager.revokeRole(accessControlManager.INSTANCE_ROLE(), instance);
+        accessControlManager.revokeRole(
+            accessControlManager.INSTANCE_ROLE(),
+            instance
+        );
         instances[instance].isActive = false;
     }
 }

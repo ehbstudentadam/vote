@@ -3,36 +3,46 @@
 pragma solidity ^0.8.27;
 
 import "./AccessControlManager.sol";
+import "./TokenDistribution.sol";
+import "@openzeppelin/contracts/token/ERC1155/IERC1155Receiver.sol";
+import "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
-contract Poll {
+contract Poll is IERC1155Receiver, ERC165 {
     // Centralized access control contract reference
     AccessControlManager public accessControlManager;
+    // Token distribution contract reference
+    TokenDistribution public tokenDistribution;
 
     // Struct to represent each voting option
     struct VotingOption {
         string description; // Description of the voting option
-        uint256 voteCount;  // Count of votes for this option
+        uint256 voteCount; // Count of votes for this option
     }
 
     // Poll variables
-    string public pollTitle;           // Title of the poll
-    uint256 public endDate;            // Poll end date (UNIX timestamp)
-    bool public isFinalized;           // Poll status: finalized or not
-    address public creator;            // Address of the poll creator (Instance)
+    string public pollTitle; // Title of the poll
+    uint256 public endDate; // Poll end date (UNIX timestamp)
+    bool public isFinalized; // Poll status: finalized or not
+    address public creator; // Address of the poll creator (Instance)
     VotingOption[] public votingOptions; // Array of voting options
 
     // Mapping to track each user's votes per option
     mapping(address => mapping(uint256 => uint256)) public votes;
 
     // Participation restrictions
-    uint256 public minAge;               // Minimum age required to participate
-    string public location;              // Location restriction for participants
-    uint256 public minTokensRequired;    // Minimum tokens required for participation
+    uint256 public minAge; // Minimum age required to participate
+    string public location; // Location restriction for participants
+    uint256 public minTokensRequired; // Minimum tokens required for participation
 
     // Events
     event VoteCast(address indexed voter, uint256 optionIndex, uint256 amount);
+    event VotesCast(
+        address indexed voter,
+        uint256[] optionIndexes,
+        uint256[] amounts
+    );
     event PollFinalized(string title, uint256[] results);
-    event VotesReset(address user);
+    event NFTReceived(address indexed from, uint256 id, uint256 amount);
 
     // Modifier to ensure the poll is active (not ended or finalized)
     modifier onlyActivePoll() {
@@ -45,7 +55,10 @@ contract Poll {
      * @dev Modifier to restrict access to functions only for roles.
      */
     modifier onlyRoleFromManager(bytes32 role) {
-        require(accessControlManager.hasRoleForContract(role, msg.sender), "Access denied: Incorrect role");
+        require(
+            accessControlManager.hasRoleForContract(role, msg.sender),
+            "Access denied: Incorrect role"
+        );
         _;
     }
 
@@ -69,15 +82,25 @@ contract Poll {
         string memory _location,
         uint256 _minTokensRequired,
         address _creator,
-        address _accessControlManager
+        address _accessControlManager,
+        address _tokenDistribution
     ) {
         require(_endDate > block.timestamp, "End date must be in the future");
         require(_minAge > 0, "Minimum age must be greater than zero");
         require(_creator != address(0), "Creator address cannot be zero");
-        require(_accessControlManager != address(0), "AccessControlManager address cannot be zero");
+        require(
+            _accessControlManager != address(0),
+            "AccessControlManager address cannot be zero"
+        );
+        require(
+            _tokenDistribution != address(0),
+            "TokenDistribution address cannot be zero"
+        );
 
         // Set the centralized access control manager
         accessControlManager = AccessControlManager(_accessControlManager);
+        // Set the token distribution contract
+        tokenDistribution = TokenDistribution(_tokenDistribution);
 
         pollTitle = _title;
         endDate = _endDate;
@@ -88,50 +111,142 @@ contract Poll {
 
         // Initialize each voting option
         for (uint256 i = 0; i < _votingOptions.length; i++) {
-            votingOptions.push(VotingOption({description: _votingOptions[i], voteCount: 0}));
+            votingOptions.push(
+                VotingOption({description: _votingOptions[i], voteCount: 0})
+            );
         }
-
-        // // Grant roles via AccessControlManager
-        // accessControlManager.grantRoleToContract(USER_ROLE, address(this));
 
         // Mark the poll as initially active
         isFinalized = false;
     }
 
     /**
-     * @dev Function for users to cast or update a vote for a specific option.
-     * @param user Address of the voter.
+     * @dev Allows users to cast votes for a specific option in the poll.
+     * Transfers the required number of NFTs (tokens) to the Poll contract.
      * @param optionIndex The index of the voting option chosen.
      * @param amount The amount of tokens allocated to this vote.
      */
-    function castVote(address user, uint256 optionIndex, uint256 amount) 
-        external 
-        onlyActivePoll 
-        onlyRoleFromManager(accessControlManager.USER_ROLE()) 
+    function castVote(
+        uint256 optionIndex,
+        uint256 amount
+    )
+        external
+        onlyActivePoll
+        onlyRoleFromManager(accessControlManager.USER_ROLE())
     {
         require(optionIndex < votingOptions.length, "Invalid voting option");
 
-        // Record the user's vote
-        votingOptions[optionIndex].voteCount += amount;
-        votes[user][optionIndex] += amount;
+        uint256 pollId = uint256(uint160(address(this))); // Unique poll ID based on contract address
+        uint256 userBalance = tokenDistribution.balanceOf(msg.sender, pollId);
+        require(userBalance >= amount, "Insufficient NFT tokens for this poll");
 
-        emit VoteCast(user, optionIndex, amount);
+        // Transfer tokens from user to poll
+        tokenDistribution.safeTransferFrom(
+            msg.sender,
+            address(this),
+            pollId,
+            amount,
+            ""
+        );
+
+        // Update vote counts
+        votingOptions[optionIndex].voteCount += amount;
+        votes[msg.sender][optionIndex] += amount;
+
+        emit VoteCast(msg.sender, optionIndex, amount);
+
+        _checkAndFinalizePoll(); // Check and finalize poll if conditions are met
     }
 
     /**
-     * @dev Function to reset all votes for a specific user.
-     * Removes the user's votes from all options and resets vote counts.
-     * @param user Address of the user whose votes are being reset.
+     * @dev Allows users to cast votes for multiple options in a single transaction.
+     * Transfers the required number of NFTs (tokens) to the Poll contract.
+     * @param optionIndexes Array of indexes of the voting options chosen.
+     * @param amounts Array of token amounts allocated to each option.
      */
-    function resetVotes(address user) external onlyRoleFromManager(accessControlManager.USER_ROLE()) {
-        for (uint256 i = 0; i < votingOptions.length; i++) {
-            uint256 userVotes = votes[user][i];
-            if (userVotes > 0) {
-                votingOptions[i].voteCount -= userVotes; // Decrease the vote count
-                votes[user][i] = 0; // Reset the user's vote for this option
-            }
+    function castVotes(
+        uint256[] memory optionIndexes,
+        uint256[] memory amounts
+    )
+        external
+        onlyActivePoll
+        onlyRoleFromManager(accessControlManager.USER_ROLE())
+    {
+        require(
+            optionIndexes.length == amounts.length,
+            "Mismatched indexes and amounts"
+        );
+
+        uint256 pollId = uint256(uint160(address(this))); // Unique poll ID based on contract address
+        uint256 userBalance = tokenDistribution.balanceOf(msg.sender, pollId);
+
+        uint256 totalAmount = 0;
+        for (uint256 i = 0; i < optionIndexes.length; i++) {
+            require(
+                optionIndexes[i] < votingOptions.length,
+                "Invalid voting option"
+            );
+            require(amounts[i] > 0, "Amount must be greater than zero");
+            totalAmount += amounts[i];
         }
-        emit VotesReset(user);
+
+        require(
+            userBalance >= totalAmount,
+            "Insufficient NFT tokens for this poll"
+        );
+
+        // Transfer tokens from user to poll
+        tokenDistribution.safeTransferFrom(
+            msg.sender,
+            address(this),
+            pollId,
+            totalAmount,
+            ""
+        );
+
+        // Update vote counts for each option
+        for (uint256 i = 0; i < optionIndexes.length; i++) {
+            votingOptions[optionIndexes[i]].voteCount += amounts[i];
+            votes[msg.sender][optionIndexes[i]] += amounts[i];
+        }
+
+        emit VotesCast(msg.sender, optionIndexes, amounts);
+
+        _checkAndFinalizePoll(); // Check and finalize poll if conditions are met
+    }
+
+    /**
+     * @dev Finalizes the poll if it has reached the end date.
+     * Emits an event with the poll results.
+     */
+    function finalizePoll() public {
+        require(block.timestamp > endDate, "Poll is still active");
+        require(!isFinalized, "Poll is already finalized");
+
+        _finalizePoll();
+    }
+
+    /**
+     * @dev Internal function to check and finalize the poll.
+     */
+    function _checkAndFinalizePoll() internal {
+        if (block.timestamp > endDate && !isFinalized) {
+            _finalizePoll();
+        }
+    }
+
+    /**
+     * @dev Internal function to finalize the poll and emit the results.
+     */
+    function _finalizePoll() internal {
+        isFinalized = true;
+        uint256[] memory results = new uint256[](votingOptions.length);
+
+        for (uint256 i = 0; i < votingOptions.length; i++) {
+            results[i] = votingOptions[i].voteCount;
+        }
+
+        emit PollFinalized(pollTitle, results);
     }
 
     /**
@@ -140,10 +255,12 @@ contract Poll {
      * @return optionIndexes Array of option indexes voted by the user.
      * @return amounts Array of token amounts voted by the user for each option.
      */
-    function getUserVotes(address user) 
-        external 
-        view 
-        returns (uint256[] memory optionIndexes, uint256[] memory amounts) 
+    function getUserVotes(
+        address user
+    )
+        external
+        view
+        returns (uint256[] memory optionIndexes, uint256[] memory amounts)
     {
         uint256 optionsCount = votingOptions.length;
         uint256 voteCount = 0;
@@ -176,25 +293,12 @@ contract Poll {
      * @return location The required location for eligibility.
      * @return minTokensRequired The minimum tokens required for eligibility.
      */
-    function getEligibility() external view returns (uint256, string memory, uint256) {
+    function getEligibility()
+        external
+        view
+        returns (uint256, string memory, uint256)
+    {
         return (minAge, location, minTokensRequired);
-    }
-
-    /**
-     * @dev Function to finalize the poll after the end date has passed.
-     * This can be called by anyone and ensures results are immutable after finalization.
-     */
-    function finalizePoll() public {
-        require(block.timestamp > endDate, "Poll is still active");
-        require(!isFinalized, "Poll is already finalized");
-
-        isFinalized = true;
-        uint256[] memory results = new uint256[](votingOptions.length);
-
-        for (uint256 i = 0; i < votingOptions.length; i++) {
-            results[i] = votingOptions[i].voteCount;
-        }
-        emit PollFinalized(pollTitle, results);
     }
 
     /**
@@ -228,5 +332,46 @@ contract Poll {
             results[i] = votingOptions[i].voteCount;
         }
         return results;
+    }
+
+    /**
+     * @dev Handle receipt of a single ERC1155 token type.
+     */
+    function onERC1155Received(
+        address /* operator */,
+        address from,
+        uint256 id,
+        uint256 value,
+        bytes calldata /* data */
+    ) external override returns (bytes4) {
+        emit NFTReceived(from, id, value);
+        return this.onERC1155Received.selector;
+    }
+
+    /**
+     * @dev Handle receipt of multiple ERC1155 token types.
+     */
+    function onERC1155BatchReceived(
+        address /* operator */,
+        address from,
+        uint256[] calldata ids,
+        uint256[] calldata values,
+        bytes calldata /* data */
+    ) external override returns (bytes4) {
+        for (uint256 i = 0; i < ids.length; i++) {
+            emit NFTReceived(from, ids[i], values[i]);
+        }
+        return this.onERC1155BatchReceived.selector;
+    }
+
+    /**
+     * @dev Override `supportsInterface` to declare support for IERC1155Receiver.
+     */
+    function supportsInterface(
+        bytes4 interfaceId
+    ) public view virtual override(ERC165, IERC165) returns (bool) {
+        return
+            interfaceId == type(IERC1155Receiver).interfaceId ||
+            super.supportsInterface(interfaceId);
     }
 }

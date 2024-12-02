@@ -18,7 +18,8 @@ contract PollFactory {
         address indexed pollAddress,
         address indexed creator,
         string title,
-        uint256 endDate
+        uint256 endDate,
+        uint256 pollId
     );
 
     // Array to track all polls created by the factory
@@ -58,7 +59,7 @@ contract PollFactory {
 
     /**
      * @dev Function for registered instances to create a new poll and mint tokens.
-     * This function deploys a new Poll contract and allocates the required tokens.
+     * This function deploys a new Poll contract and allocates the required NFTs.
      * @param title The title of the poll.
      * @param options An array of options available for voting in the poll.
      * @param endDate The end date of the poll (as a UNIX timestamp).
@@ -106,23 +107,29 @@ contract PollFactory {
             location,
             minTokensRequired,
             msg.sender, // Creator of the poll (an instance)
-            address(accessControlManager)
+            address(accessControlManager),
+            address(tokenDistribution)
         );
 
-        // Mint the required token supply for the poll using TokenDistribution
-        tokenDistribution.mintTokensForPoll(address(newPoll), totalTokenSupply);
+        address pollAddress = address(newPoll);
+
+        // Call TokenDistribution to mint NFTs for the poll
+        uint256 pollId = tokenDistribution.mintNFTsForPoll(
+            pollAddress,
+            totalTokenSupply
+        );
 
         // Track the newly created poll in the allPolls array
-        allPolls.push(address(newPoll));
+        allPolls.push(pollAddress);
 
         // Track the poll by the instance address
-        pollsByInstance[msg.sender].push(address(newPoll));
+        pollsByInstance[msg.sender].push(pollAddress);
 
         // Emit the PollCreated event to log the poll creation
-        emit PollCreated(address(newPoll), msg.sender, title, endDate);
+        emit PollCreated(pollAddress, msg.sender, title, endDate, pollId);
 
         // Return the address of the new poll contract
-        return address(newPoll);
+        return pollAddress;
     }
 
     /**

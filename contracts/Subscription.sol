@@ -6,7 +6,6 @@ import "./AccessControlManager.sol";
 import "./TokenDistribution.sol";
 import "./Poll.sol";
 import "./UserRegistration.sol";
-import "hardhat/console.sol";
 
 contract Subscription {
     // Centralized access control contract reference
@@ -79,6 +78,12 @@ contract Subscription {
             "User does not meet eligibility requirements"
         );
 
+        // Ensure the user is not already subscribed to the poll
+        require(
+            !isUserSubscribedToPoll(poll, user),
+            "User is already subscribed to this poll"
+        );
+
         // Get the minimum tokens required for the poll
         Poll pollContract = Poll(poll);
         (, , uint256 minTokensRequired) = pollContract.getEligibility();
@@ -101,45 +106,56 @@ contract Subscription {
     ) public view returns (bool) {
         // Get eligibility requirements from the Poll contract
         Poll pollContract = Poll(poll);
-        (
-            uint256 minAge,
-            ,
-        ) = pollContract.getEligibility();
+        (uint256 minAge, , ) = pollContract.getEligibility();
 
         // Get user data from the UserRegistration contract
-        (
-            ,
-            uint256 age,
-            ,
-            bool isActive
-        ) = userRegistration.users(user);
+        (, uint256 age, , bool isActive) = userRegistration.users(user);
 
         // Ensure the user is active
         if (!isActive) {
-            console.log("not acitve");
             return false;
         }
 
         // Check age requirement
         if (age < minAge) {
-            console.log("age < minAge");
             return false;
         }
-        
-        // Check location requirement
-        // if (
-        //     keccak256(abi.encodePacked(location)) !=
-        //     keccak256(abi.encodePacked(requiredLocation))
-        // ) {
-        //     return false;
-        // }
-
-        // Check token requirement
-        // uint256 userTokensAvailable = msg.sender.balance;
-        // if (userTokensAvailable < minTokensRequired) {
-        //     return false;
-        // }
 
         return true;
+    }
+
+    /**
+     * @dev Checks if a user is already subscribed to a poll by verifying either:
+     * - The user has NFTs for the poll, or
+     * - The user has voted on any option in the poll.
+     * @param poll The address of the poll.
+     * @param user The address of the user.
+     * @return bool Returns true if the user is already subscribed to the poll, false otherwise.
+     */
+    function isUserSubscribedToPoll(
+        address poll,
+        address user
+    ) public view returns (bool) {
+        require(user != address(0), "Invalid user address");
+        require(poll != address(0), "Invalid poll address");
+
+        // Generate the unique pollId based on the poll's address
+        uint256 pollId = uint256(uint160(poll));
+
+        // Check if the user holds NFTs for the specific poll
+        if (tokenDistribution.balanceOf(user, pollId) > 0) {
+            return true;
+        }
+
+        // Check if the user has cast votes on any option in the poll
+        Poll pollContract = Poll(poll);
+        uint256 totalOptions = pollContract.getTotalOptions();
+        for (uint256 i = 0; i < totalOptions; i++) {
+            if (pollContract.votes(user, i) > 0) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

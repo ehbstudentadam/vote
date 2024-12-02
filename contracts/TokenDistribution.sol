@@ -2,12 +2,10 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.27;
 
-import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Burnable.sol"; // Import burnable extension for token burning capability
-import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Permit.sol"; // Import permit extension for EIP-2612 permit functionality
+import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
 import "./AccessControlManager.sol";
 
-contract TokenDistribution is ERC20, ERC20Burnable, ERC20Permit {
+contract TokenDistribution is ERC1155 {
     // Centralized access control contract reference
     AccessControlManager public accessControlManager;
 
@@ -15,8 +13,12 @@ contract TokenDistribution is ERC20, ERC20Burnable, ERC20Permit {
     mapping(address => uint256) public pollTotalSupply;
 
     // Events to emit on important actions
-    event TokensMinted(address indexed poll, uint256 amount);
-    event TokensDistributed(address indexed poll, address indexed user, uint256 amount);
+    event TokensMinted(address indexed poll, uint256 pollId, uint256 amount);
+    event TokensDistributed(
+        address indexed poll,
+        address indexed user,
+        uint256 amount
+    );
     event TokensBurned(address indexed poll, uint256 amount);
 
     /**
@@ -35,25 +37,32 @@ contract TokenDistribution is ERC20, ERC20Burnable, ERC20Permit {
      * Sets up roles and initializes the token name, symbol, and permit functionality.
      * @param _accessControlManager Address of the centralized AccessControlManager.
      */
-    constructor(address _accessControlManager) ERC20("VotingToken", "VOTE") ERC20Permit("VotingToken") {
+    constructor(address _accessControlManager) ERC1155("") {
         // Set the centralized access control manager
         accessControlManager = AccessControlManager(_accessControlManager);
     }
 
-    /**
-     * @dev Mint tokens for a specific poll. Called by PollFactory to allocate tokens for each poll.
-     * Only callable by entities with the DISTRIBUTOR_ROLE.
-     * @param poll The address of the poll contract receiving minted tokens.
-     * @param amount The amount of tokens to mint for the poll.
-     */
-    function mintTokensForPoll(address poll, uint256 amount) external onlyRoleFromManager(accessControlManager.DISTRIBUTOR_ROLE()) {
+    function mintNFTsForPoll(
+        address poll,
+        uint256 amount
+    )
+        external
+        onlyRoleFromManager(accessControlManager.DISTRIBUTOR_ROLE())
+        returns (uint256)
+    {
         require(poll != address(0), "Invalid poll address");
-        require(amount > 0, "Amount must be greater than zero");
+        require(amount > 0, "Total supply must be greater than zero");
 
-        _mint(poll, amount); // Mint tokens to the poll contract's address
-        pollTotalSupply[poll] = amount; // Track total supply for the poll
+        // Generate a unique pollId
+        uint256 pollId = uint256(uint160(poll));
 
-        emit TokensMinted(poll, amount); // Emit event for token minting
+        // Mint the NFTs to the poll
+        _mint(poll, pollId, amount, "");
+
+        // Emit event for minting
+        emit TokensMinted(poll, pollId, amount);
+
+        return pollId;
     }
 
     /**
@@ -63,28 +72,22 @@ contract TokenDistribution is ERC20, ERC20Burnable, ERC20Permit {
      * @param poll The address of the poll contract.
      * @param amount The number of tokens to transfer to the user.
      */
-    function distributeTokens(address user, address poll, uint256 amount) external onlyRoleFromManager(accessControlManager.DISTRIBUTOR_ROLE()) {
+    function distributeTokens(
+        address user,
+        address poll,
+        uint256 amount
+    ) external onlyRoleFromManager(accessControlManager.DISTRIBUTOR_ROLE()) {
         require(user != address(0), "Invalid user address");
         require(poll != address(0), "Invalid poll address");
         require(amount > 0, "Token amount must be greater than zero");
 
-        // Transfer tokens from the poll contract's balance to the user
-        _transfer(poll, user, amount);
+        // Generate the pollId from the poll address
+        uint256 pollId = uint256(uint160(poll));
+
+        // Safely transfer the tokens from the poll's balance to the user
+        _safeTransferFrom(poll, user, pollId, amount, "");
 
         emit TokensDistributed(poll, user, amount); // Emit event for token distribution
-    }
-
-    /**
-     * @dev Burn any remaining tokens in the poll’s balance after poll finalization.
-     * Only callable by entities with the DISTRIBUTOR_ROLE.
-     * @param poll The address of the poll contract whose tokens are to be burned.
-     */
-    function burnRemainingTokens(address poll) external onlyRoleFromManager(accessControlManager.DISTRIBUTOR_ROLE()) {
-        uint256 remainingTokens = balanceOf(poll); // Get the balance of the poll contract
-        require(remainingTokens > 0, "No tokens to burn");
-
-        _burn(poll, remainingTokens); // Burn the remaining tokens
-        emit TokensBurned(poll, remainingTokens); // Emit event for tokens burned
     }
 
     /**
@@ -92,7 +95,9 @@ contract TokenDistribution is ERC20, ERC20Burnable, ERC20Permit {
      * @param poll The address of the poll contract.
      * @return The total number of tokens minted for the poll.
      */
-    function getTotalSupplyForPoll(address poll) external view returns (uint256) {
+    function getTotalSupplyForPoll(
+        address poll
+    ) external view returns (uint256) {
         return pollTotalSupply[poll]; // Return total supply minted for the poll
     }
 }
