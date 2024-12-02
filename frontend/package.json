@@ -11,6 +11,7 @@
     "postinstall": "nuxt prepare"
   },
   "dependencies": {
+    "@nuxt/fonts": "^0.10.2",
     "@tanstack/vue-query": ">=5.45.0",
     "@wagmi/vue": "latest",
     "nuxt": "^3.11.2",

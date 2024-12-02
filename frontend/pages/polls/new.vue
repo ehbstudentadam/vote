@@ -70,7 +70,7 @@ import { useRouter } from 'vue-router';
 import { useWriteContract, useAccount } from '@wagmi/vue';
 import PollFactoryArtifact from '~/artifacts/PollFactory.json';
 
-const pollFactoryAddress = '0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9';
+const pollFactoryAddress = import.meta.env.VITE_POLL_FACTORY_ADDRESS;
 const pollFactoryABI = PollFactoryArtifact.abi;
 
 // Form data
@@ -160,7 +160,7 @@ const createPoll = async () => {
 
         console.log('Transaction successful:', tx);
         alert('Poll created successfully!');
-        router.push('/dashboard/instance'); // Navigate back to the instance dashboard
+        router.push('/dashboard/instance');
     } catch (error) {
         console.error('Error creating poll:', error);
         alert(error.message || 'Failed to create poll');
@@ -170,22 +170,28 @@ const createPoll = async () => {
 
 </script>
 
-
-
 <style scoped>
 .new-poll-container {
-    max-width: 600px;
+    max-width: 800px;
     margin: 2rem auto;
+    font-family: "Roboto Mono", monospace;
+    padding: 2rem;
+    border-radius: 12px;
 }
 
 h1 {
-    font-size: 2rem;
+    font-size: 2.5rem;
+    font-weight: bold;
+    color: #333333;
     margin-bottom: 0.5rem;
+    text-align: center;
 }
 
 p {
     margin-bottom: 1.5rem;
-    color: #666;
+    color: #555555;
+    font-size: 1.2rem;
+    text-align: center;
 }
 
 form {
@@ -197,58 +203,110 @@ form {
 .form-group {
     display: flex;
     flex-direction: column;
-    padding: 0.5rem;
+    gap: 0.5rem;
 }
 
 label {
+    font-size: 1.2rem;
     font-weight: bold;
-    margin-bottom: 0.5rem;
+    color: #333333;
+    margin: 0.5rem;
+}
+
+fieldset label {
+  font-size: 1rem;
 }
 
 input {
-    padding: 0.5rem;
+    padding: 0.75rem;
     font-size: 1rem;
-    border: 1px solid #ccc;
-    border-radius: 4px;
+    border: 1px solid #dddddd;
+    border-radius: 6px;
+    background-color: #ffffff;
+    transition: border-color 0.3s ease;
+    margin-bottom: 1rem;
+}
+
+input:focus {
+    outline: none;
+    border-color: #6c63ff;
+    background-color: #f9f9ff;
 }
 
 .add-option-button {
-    margin: 0.5rem;
+    margin: 0.5rem auto;
     padding: 0.75rem;
+    font-size: 1rem;
+    background-color: #6c63ff;
+    color: #ffffff;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background-color 0.3s ease, transform 0.2s ease;
+}
+
+.add-option-button:hover {
+    background-color: #574dff;
+    transform: scale(1.05);
+}
+
+.add-option-button:active {
+    background-color: #483fff;
+    transform: scale(1);
 }
 
 .create-button {
     padding: 1rem;
     font-size: 1.25rem;
-    background-color: #007bff;
-    color: white;
+    font-weight: bold;
+    background-color: #6c63ff;
+    color: #ffffff;
     border: none;
-    border-radius: 5px;
+    border-radius: 6px;
     cursor: pointer;
+    text-transform: uppercase;
+    transition: background-color 0.3s ease, transform 0.2s ease;
 }
 
 .create-button:hover {
-    background-color: #0056b3;
+    background-color: #574dff;
+    transform: scale(1.05);
+}
+
+.create-button:active {
+    background-color: #483fff;
+    transform: scale(1);
 }
 
 fieldset {
-    border: 1px solid #ccc;
+    border: 1px solid #dddddd;
     padding: 1rem;
-    border-radius: 5px;
+    border-radius: 8px;
+    background-color: #f9f9f9;
 }
 
 legend {
     font-weight: bold;
+    font-size: 1.2rem;
+    color: #333333;
 }
 
 button {
     cursor: pointer;
-    padding: 0.5rem 1rem;
+    font-family: inherit;
+    font-size: 1rem;
+    padding: 0.75rem 1.25rem;
     border: none;
-    border-radius: 4px;
+    border-radius: 6px;
+    transition: background-color 0.3s ease, transform 0.2s ease;
 }
 
 button:hover {
-    background-color: #eaeaea;
+    background-color: #e6e6e6;
+    transform: scale(1.05);
+}
+
+button:active {
+    transform: scale(1);
 }
 </style>

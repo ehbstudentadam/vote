@@ -38,7 +38,7 @@
                         -
                     </button>
                     <div class="option-title">{{ option.description }}</div>
-                    <div class="vote-count">Total Votes: {{ globalVotes[index] + votes[index] }}</div>
+                    <div class="vote-count">{{ globalVotes[index] + votes[index] }}</div>
                     <button class="vote-adjust" @click="adjustVote(index, 1)" :disabled="remainingTokens === 0">
                         +
                     </button>
@@ -70,8 +70,8 @@ const pollABI = PollArtifact.abi;
 const tokenDistributionABI = TokenDistributionArtifact.abi;
 const subscriptionABI = SubscriptionArtifact.abi;
 
-const tokenDistributionAddress = '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512';
-const subscriptionAddress = '0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9';
+const tokenDistributionAddress = import.meta.env.VITE_TOKEN_DISTRIBUTION_ADDRESS;
+const subscriptionAddress = import.meta.env.VITE_SUBSCRIPTION_ADDRESS;
 
 // Vue refs for state management
 const pollTitle = ref('');
@@ -192,7 +192,6 @@ const subscribeToPoll = () => {
         account: address.value
     })
         .then(() => {
-            console.log('Successfully subscribed to the poll!');
             isSubscribed.value = true;
             canSubscribe.value = false;
             fetchUserTokens();
@@ -266,7 +265,6 @@ const castVotes = async () => {
         }
 
         // Approve the Poll contract to manage NFTs
-        console.log('Granting approval for the Poll contract...');
         await approveContractAsync({
             address: tokenDistributionAddress, // Address of the TokenDistribution contract
             abi: tokenDistributionABI, // ABI of the TokenDistribution contract
@@ -285,9 +283,6 @@ const castVotes = async () => {
             .filter((vote) => vote > 0)
             .map(Number); // Ensure they are numbers
 
-        console.log('Option Indexes:', optionIndexes);
-        console.log('Amounts:', amounts);
-
         // Write to the contract
         const tx = await castVotesAsync({
             address: pollId,
@@ -296,8 +291,7 @@ const castVotes = async () => {
             args: [optionIndexes, amounts],
             account: address.value,
         });
-
-        console.log('Votes cast successfully:', tx);
+        
         alert('Votes cast successfully!');
     } catch (error) {
         console.error('Error casting votes:', error);
@@ -316,12 +310,14 @@ onMounted(() => {
 </script>
 
 
-<style>
+<style scoped>
 .poll-container {
     display: flex;
     flex-direction: column;
     align-items: center;
     margin: 2rem;
+    font-family: "Roboto Mono", monospace;
+    color: #333;
 }
 
 .poll-header {
@@ -333,27 +329,33 @@ onMounted(() => {
     text-align: center;
     font-size: 1.5rem;
     margin-top: 2rem;
+    color: #555;
 }
 
 h1 {
     font-size: 2rem;
     font-weight: bold;
+    color: #222;
 }
 
 h2 {
     font-size: 1.5rem;
     font-weight: bold;
     margin-bottom: 1rem;
+    color: #444;
 }
 
 .poll-info {
     font-size: 1rem;
-    color: #666;
+    color: #555;
     margin-top: 1rem;
+    line-height: 1.5;
 }
 
 .poll-data {
     min-width: 800px;
+    width: 100%;
+    max-width: 1000px;
 }
 
 .poll-options {
@@ -372,31 +374,49 @@ h2 {
     border: 1px solid #ccc;
     border-radius: 8px;
     background-color: #f9f9f9;
+    transition: background-color 0.3s ease;
+}
+
+.poll-option-row:hover {
+    background-color: #f0f0f0;
 }
 
 .option-title {
     flex-grow: 1;
-    text-align: center;
+    text-align: left;
     font-size: 1rem;
     font-weight: bold;
+    color: #333;
+    padding: 0 1rem;
 }
 
 .vote-count {
     font-size: 1rem;
     font-weight: bold;
-    width: 100px;
+    width: 120px;
     text-align: center;
+    color: #444;
 }
 
 .vote-adjust {
-    background: none;
+    background-color: #e9ecef;
     border: 1px solid #ccc;
     padding: 0.5rem;
-    font-size: 1.5rem;
+    font-size: 1.2rem;
+    font-weight: bold;
+    color: #333;
+    border-radius: 5px;
     cursor: pointer;
+    transition: background-color 0.3s ease, transform 0.2s ease;
+}
+
+.vote-adjust:hover:not(:disabled) {
+    background-color: #d6d8db;
+    transform: scale(1.05);
 }
 
 .vote-adjust:disabled {
+    background-color: #f5f5f5;
     color: #aaa;
     cursor: not-allowed;
 }
@@ -408,15 +428,60 @@ h2 {
 
 .vote-button {
     padding: 1rem 2rem;
-    background-color: #007bff;
+    background-color: #6c63ff;
     color: white;
     border: none;
     font-size: 1rem;
+    font-weight: bold;
     border-radius: 5px;
     cursor: pointer;
+    text-transform: uppercase;
+    transition: background-color 0.3s ease, transform 0.2s ease;
+}
+
+.vote-button:hover:not(:disabled) {
+    background-color: #574dff;
+    transform: scale(1.05);
 }
 
 .vote-button:disabled {
+    background-color: #aaa;
+    cursor: not-allowed;
+}
+
+.subscription-section {
+    text-align: center;
+    margin-bottom: 2rem;
+    margin-top: 10rem;
+}
+
+.subscription-section p {
+    font-size: 1rem;
+    color: #555;
+    margin-bottom: 1rem;
+}
+
+.subscribe-button {
+    padding: 1rem 2rem;
+    background-color: #6c63ff;
+    color: white;
+    border: none;
+    font-size: 1rem;
+    font-weight: bold;
+    border-radius: 5px;
+    cursor: pointer;
+    text-transform: uppercase;
+    transition: background-color 0.3s ease, transform 0.2s ease;
+    margin: 1rem;
+    ;
+}
+
+.subscribe-button:hover:not(:disabled) {
+    background-color: #574dff;
+    transform: scale(1.05);
+}
+
+.subscribe-button:disabled {
     background-color: #aaa;
     cursor: not-allowed;
 }

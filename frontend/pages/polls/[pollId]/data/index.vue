@@ -11,11 +11,11 @@
             <div class="poll-header">
                 <h1>Poll: {{ pollTitle }}</h1>
                 <div class="poll-info">
-                    <p>End Date: {{ finalDate || 'N/A' }}</p>
                     <p>Creator: {{ creator || 'N/A' }}</p>
-                    <p>Minimum Age: {{ minAge || 'N/A' }}</p>
+                    <p>End Date: {{ finalDate || 'N/A' }}</p>
                     <p>Location Restriction: {{ location || 'N/A' }}</p>
-                    <p>Minimum Tokens Required: {{ minTokensRequired || 'N/A' }}</p>
+                    <p>Tokens Per Voter: {{ minTokensRequired || 'N/A' }}</p>
+                    <p>Minimum Age: {{ minAge || 'N/A' }}</p>
                     <p>Is Finalized: {{ isFinalized ? 'Yes' : 'No' }}</p>
                 </div>
             </div>
@@ -194,6 +194,8 @@ onMounted(() => {
     flex-direction: column;
     align-items: center;
     margin: 2rem;
+    font-family: "Roboto Mono", monospace;
+    color: #333;
 }
 
 .poll-header {
@@ -205,23 +207,29 @@ onMounted(() => {
     text-align: center;
     font-size: 1.5rem;
     margin-top: 2rem;
+    color: #555;
 }
 
 h1 {
-    font-size: 2rem;
+    font-size: 2.5rem;
     font-weight: bold;
+    color: #222;
+    margin-bottom: 1rem;
 }
 
 h2 {
-    font-size: 1.5rem;
+    font-size: 2rem;
     font-weight: bold;
+    color: #444;
     margin-bottom: 1rem;
+    text-align: center;
 }
 
 .poll-info {
     font-size: 1rem;
-    color: #666;
+    color: #555;
     margin-top: 1rem;
+    line-height: 1.5;
 }
 
 .poll-data {
@@ -243,20 +251,55 @@ h2 {
     padding: 1rem;
     border: 1px solid #ccc;
     border-radius: 8px;
-    background-color: #f9f9f9;
+    background-color: #fafafa;
+    transition: background-color 0.3s ease;
+}
+
+.poll-option-row:hover {
+    background-color: #f0f0f0;
 }
 
 .option-title {
     flex-grow: 1;
-    text-align: center;
-    font-size: 1rem;
+    text-align: left;
+    font-size: 1.1rem;
     font-weight: bold;
+    color: #333;
 }
 
 .vote-count {
-    font-size: 1rem;
+    font-size: 1.1rem;
     font-weight: bold;
     width: 100px;
     text-align: center;
+    color: #444;
+}
+
+.poll-info p {
+    margin: 0.5rem 0;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+    .poll-data {
+        min-width: 100%;
+    }
+
+    .poll-options {
+        gap: 0.75rem;
+    }
+
+    h1 {
+        font-size: 2rem;
+    }
+
+    h2 {
+        font-size: 1.5rem;
+    }
+
+    .option-title,
+    .vote-count {
+        font-size: 1rem;
+    }
 }
 </style>

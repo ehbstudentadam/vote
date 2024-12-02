@@ -10,48 +10,51 @@
       </div>
     </div>
 
-    <!-- Registration Forms -->
-    <div v-if="selectedOption" class="form-container" :style="{ left: selectedOption === 'poll' ? '50%' : '0' }">
-      <div v-if="selectedOption === 'vote'" class="form">
-        <h2>Register to Vote</h2>
-        <form @submit.prevent="handleUserRegistration">
-          <div class="form-group">
-            <label for="username">Name:</label>
-            <input v-model="userName" type="text" id="username" required />
-          </div>
-          <div class="form-group">
-            <label for="age">Age:</label>
-            <input v-model="userAge" type="number" id="age" required />
-          </div>
-          <div class="form-group">
-            <label for="email">Email:</label>
-            <input v-model="userEmail" type="email" id="email" required />
-          </div>
-          <button type="submit">Register</button>
-        </form>
-        <p v-if="userError" class="error">{{ userError }}</p>
-        <p v-if="userSuccess" class="success">Voter registration successful!</p>
-      </div>
+    <!-- Fade-in for Form Container -->
+    <transition name="fade">
+      <div v-if="selectedOption" class="form-container" :style="{ left: selectedOption === 'poll' ? '50%' : '0' }">
+        <div v-if="selectedOption === 'vote'" class="form">
+          <h2>Register to Vote</h2>
+          <form @submit.prevent="handleUserRegistration">
+            <div class="form-group">
+              <label for="username">Name:</label>
+              <input v-model="userName" type="text" id="username" required />
+            </div>
+            <div class="form-group">
+              <label for="age">Age:</label>
+              <input v-model="userAge" type="number" id="age" required />
+            </div>
+            <div class="form-group">
+              <label for="email">Email:</label>
+              <input v-model="userEmail" type="email" id="email" required />
+            </div>
+            <button type="submit">Register</button>
+          </form>
+          <p v-if="userError" class="error">{{ userError }}</p>
+          <p v-if="userSuccess" class="success">Voter registration successful!</p>
+        </div>
 
-      <div v-if="selectedOption === 'poll'" class="form">
-        <h2>Register to Create a Poll</h2>
-        <form @submit.prevent="handleInstanceRegistration">
-          <div class="form-group">
-            <label for="orgname">Organization Name:</label>
-            <input v-model="orgName" type="text" id="orgname" required />
-          </div>
-          <div class="form-group">
-            <label for="contact">Email:</label>
-            <input v-model="orgEmail" type="email" id="contact" required />
-          </div>
-          <button type="submit">Register</button>
-        </form>
-        <p v-if="instanceError" class="error">{{ instanceError }}</p>
-        <p v-if="success" class="success">Instance registration successful!</p>
+        <div v-if="selectedOption === 'poll'" class="form">
+          <h2>Register to Create a Poll</h2>
+          <form @submit.prevent="handleInstanceRegistration">
+            <div class="form-group">
+              <label for="orgname">Organization Name:</label>
+              <input v-model="orgName" type="text" id="orgname" required />
+            </div>
+            <div class="form-group">
+              <label for="contact">Email:</label>
+              <input v-model="orgEmail" type="email" id="contact" required />
+            </div>
+            <button type="submit">Register</button>
+          </form>
+          <p v-if="instanceError" class="error">{{ instanceError }}</p>
+          <p v-if="success" class="success">Instance registration successful!</p>
+        </div>
       </div>
-    </div>
+    </transition>
   </div>
 </template>
+
 
 <script setup>
 import { ref } from 'vue';
@@ -76,7 +79,7 @@ const instanceError = ref(null);
 const success = ref(false);
 
 // Contract details
-const userRegistrationAddress = '0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0';
+const userRegistrationAddress = import.meta.env.VITE_USER_REGISTRATION_ADDRESS;
 const userRegistrationABI = UserRegistrationArtifact.abi;
 
 // Router instance
@@ -208,14 +211,18 @@ function resetFormFields() {
 </script>
 
 <style scoped>
+/* General layout */
 .register-page {
   display: flex;
   width: 100vw;
   height: 100vh;
   overflow: hidden;
   position: relative;
+  font-family: "Roboto Mono", monospace;
+  background-color: #f5f5f5;
 }
 
+/* Options container */
 .options-container {
   display: flex;
   width: 200%;
@@ -229,16 +236,18 @@ function resetFormFields() {
   justify-content: center;
   cursor: pointer;
   height: 100vh;
-  color: white;
   font-size: 2rem;
+  font-weight: bold;
+  text-transform: uppercase;
+  color: #ffffff;
 }
 
 .vote {
-  background-color: #3498db;
+  background-color: #6b63ff; /* Purple tone for voting */
 }
 
 .poll {
-  background-color: #2ecc71;
+  background-color: #ffffff; /* Coral tone for poll creation */
 }
 
 .slide-left {
@@ -249,6 +258,24 @@ function resetFormFields() {
   transform: translateX(50%);
 }
 
+/* Transition for fade with delay */
+.fade-enter-active{
+  transition: opacity 0.5s ease;
+}
+
+.fade-enter-active {
+  transition-delay: 0.2s;
+}
+
+.fade-enter-from{
+  opacity: 0;
+}
+
+.fade-enter-to {
+  opacity: 1;
+}
+
+/* Form container */
 .form-container {
   position: absolute;
   top: 0;
@@ -257,17 +284,21 @@ function resetFormFields() {
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: transform 0.5s ease;
 }
 
 .form {
-  background: white;
   padding: 2rem;
-  border-radius: 8px;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+  border-radius: 12px;
   width: 80%;
   max-width: 500px;
   text-align: center;
+}
+
+h2 {
+  font-size: 1.8rem;
+  font-weight: bold;
+  color: #333;
+  margin-bottom: 1rem;
 }
 
 .form-group {
@@ -279,35 +310,50 @@ label {
   display: block;
   font-weight: bold;
   margin-bottom: 0.5rem;
+  color: #333;
 }
 
 input {
   width: 100%;
-  padding: 0.5rem;
+  padding: 0.75rem;
   border: 1px solid #ddd;
-  border-radius: 4px;
+  border-radius: 6px;
+  font-size: 1rem;
+  color: #333;
+}
+
+input:focus {
+  outline: none;
+  border-color: #6c63ff;
 }
 
 button {
-  background-color: #3498db;
-  color: white;
+  background-color: #6c63ff;
+  color: #ffffff;
   border: none;
   padding: 0.75rem 1.5rem;
-  border-radius: 4px;
-  cursor: pointer;
+  border-radius: 6px;
   font-size: 1rem;
-  margin-top: 1rem;
+  font-weight: bold;
+  text-transform: uppercase;
+  transition: background-color 0.3s ease, transform 0.2s ease;
 }
 
 button:hover {
-  background-color: #2980b9;
+  background-color: #574dff;
+  transform: scale(1.05);
 }
 
+button:active {
+  background-color: #483fff;
+}
+
+/* Error and success messages */
 .error {
-  color: red;
+  color: #ff4d4d;
 }
 
 .success {
-  color: green;
+  color: #32cd32;
 }
 </style>

@@ -38,10 +38,10 @@ import PollArtifact from '~/artifacts/Poll.json';
 
 // Contract details
 const userRegistrationABI = UserRegistrationArtifact.abi;
-const userRegistrationAddress = '0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0';
+const userRegistrationAddress = import.meta.env.VITE_USER_REGISTRATION_ADDRESS;
 
 const pollFactoryABI = PollFactoryArtifact.abi;
-const pollFactoryAddress = '0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9';
+const pollFactoryAddress = import.meta.env.VITE_POLL_FACTORY_ADDRESS;
 
 const pollABI = PollArtifact.abi;
 
@@ -195,6 +195,7 @@ const createPoll = () => {
   flex-direction: column;
   align-items: center;
   margin: 2rem;
+  font-family: "Roboto Mono", monospace;
 }
 
 .title-container {
@@ -203,18 +204,19 @@ const createPoll = () => {
 }
 
 h1 {
-  font-size: 2rem;
+  font-size: 2.5rem;
   font-weight: bold;
+  color: #333;
 }
 
 p {
-  font-size: 1rem;
+  font-size: 1.2rem;
   color: #666;
 }
 
 .polls-container {
   width: 100%;
-  max-width: 800px;
+  max-width: 1200px;
   display: flex;
   flex-direction: column;
   gap: 1rem;
@@ -225,28 +227,30 @@ p {
   display: flex;
   flex-direction: column;
   padding: 1rem;
-  border: 1px solid #ccc;
+  border: 1px solid #e0e0e0;
   border-radius: 8px;
-  background-color: #f9f9f9;
+  background-color: #ffffff;
   cursor: pointer;
-  transition: background-color 0.3s ease;
+  transition: background-color 0.3s ease, box-shadow 0.3s ease;
 }
 
 .poll-row:hover {
-  background-color: #f0f0f0;
+  background-color: #f5f5f5;
+  box-shadow: 0px 4px 15px rgba(0, 0, 0, 0.1);
 }
 
 .poll-title {
-  font-size: 1.2rem;
+  font-size: 1.4rem;
   font-weight: bold;
   margin-bottom: 0.5rem;
+  color: #222;
 }
 
 .poll-info {
   display: flex;
   justify-content: space-between;
-  font-size: 0.9rem;
-  color: #333;
+  font-size: 1rem;
+  color: #555;
 }
 
 .create-poll-container {
@@ -258,17 +262,45 @@ p {
 
 .create-poll-button {
   padding: 1rem 2rem;
-  font-size: 1rem;
+  font-size: 1.1rem;
   font-weight: bold;
-  color: white;
-  background-color: #007bff;
+  color: #ffffff;
+  background-color: #6c63ff; /* Purple tone */
   border: none;
   border-radius: 8px;
   cursor: pointer;
-  transition: background-color 0.3s ease;
+  transition: background-color 0.3s ease, transform 0.2s ease;
 }
 
 .create-poll-button:hover {
-  background-color: #0056b3;
+  background-color: #574dff;
+  transform: scale(1.05);
+}
+
+.create-poll-button:active {
+  background-color: #483fff;
+  transform: scale(1);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .polls-container {
+    width: 90%;
+  }
+
+  .poll-title {
+    font-size: 1.2rem;
+  }
+
+  .poll-info {
+    flex-direction: column;
+    gap: 0.5rem;
+    font-size: 0.9rem;
+  }
+
+  .create-poll-button {
+    font-size: 1rem;
+    padding: 0.8rem 1.5rem;
+  }
 }
 </style>

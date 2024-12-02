@@ -32,13 +32,13 @@ import SubscriptionArtifact from '~/artifacts/Subscription.json';
 
 // Contract details
 const userRegistrationABI = UserRegistrationArtifact.abi;
-const userRegistrationAddress = '0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0';
+const userRegistrationAddress = import.meta.env.VITE_USER_REGISTRATION_ADDRESS;
 
 const pollFactoryABI = PollFactoryArtifact.abi;
-const pollFactoryAddress = '0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9';
+const pollFactoryAddress = import.meta.env.VITE_POLL_FACTORY_ADDRESS;
 
 const subscriptionABI = SubscriptionArtifact.abi;
-const subscriptionAddress = '0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9';
+const subscriptionAddress = import.meta.env.VITE_SUBSCRIPTION_ADDRESS;
 
 const pollABI = PollArtifact.abi;
 
@@ -252,11 +252,25 @@ const goToPoll = (pollAddress) => {
     flex-direction: column;
     align-items: center;
     margin: 2rem;
+    font-family: "Roboto Mono", monospace;
+    color: #333;
 }
 
 .title-container {
     text-align: center;
     margin-bottom: 2rem;
+}
+
+.title-container h1 {
+    font-size: 2rem;
+    font-weight: bold;
+    color: #222;
+    margin-bottom: 0.5rem;
+}
+
+.title-container p {
+    font-size: 1rem;
+    color: #555;
 }
 
 .polls-container {
@@ -273,26 +287,56 @@ const goToPoll = (pollAddress) => {
     border: 1px solid #ccc;
     border-radius: 8px;
     background-color: #f9f9f9;
-    transition: background-color 0.3s ease;
+    display: flex;
+    flex-direction: column;
+    transition: background-color 0.3s ease, transform 0.2s ease;
+    cursor: pointer;
+    font-family: "Roboto Mono", monospace;
 }
 
 .poll-row.eligible {
-    background-color: #d4edda;
-    /* Light green */
+    background-color: #f7efff;
+    /* Soft green for eligible polls */
 }
 
 .poll-row:hover {
-    background-color: #e9ecef;
+    background-color: #f0f0f0;
+    transform: scale(1.02);
 }
 
 .poll-title {
     font-size: 1.2rem;
     font-weight: bold;
+    color: #333;
+    margin-bottom: 0.5rem;
 }
 
 .poll-info {
     display: flex;
     justify-content: space-between;
-    font-size: 0.9rem;
+    font-size: 1rem;
+    color: #555;
+}
+
+.poll-info div {
+    margin-right: 1rem;
+}
+
+@media (max-width: 768px) {
+    .polls-container {
+        gap: 0.75rem;
+    }
+
+    .poll-row {
+        padding: 0.75rem;
+    }
+
+    .poll-title {
+        font-size: 1rem;
+    }
+
+    .poll-info {
+        font-size: 0.9rem;
+    }
 }
 </style>
