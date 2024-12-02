@@ -30,10 +30,10 @@ async function main() {
   console.log("Subscription deployed to:", subscription.target);
 
   // Deploy Voting
-  const Voting = await ethers.getContractFactory("Voting");
-  const voting = await Voting.deploy(tokenDistribution.target, accessControlManager.target);
-  await voting.waitForDeployment();
-  console.log("Voting deployed to:", voting.target);
+  // const Voting = await ethers.getContractFactory("Voting");
+  // const voting = await Voting.deploy(tokenDistribution.target, accessControlManager.target);
+  // await voting.waitForDeployment();
+  // console.log("Voting deployed to:", voting.target);
 
   // Deploy PollFactory
   const PollFactory = await ethers.getContractFactory("PollFactory");
@@ -68,11 +68,11 @@ async function main() {
   await accessControlManager.grantRoleToContract(instanceRole, pollFactory.target);
   console.log(`Granted INSTANCE_ROLE to PollFactory at ${pollFactory.target}`);
 
-  await accessControlManager.grantRoleToContract(distributorRole, voting.target);
-  console.log(`Granted DISTRIBUTOR_ROLE to Voting at ${voting.target}`);
+  // await accessControlManager.grantRoleToContract(distributorRole, voting.target);
+  // console.log(`Granted DISTRIBUTOR_ROLE to Voting at ${voting.target}`);
 
-  await accessControlManager.grantRoleToContract(userRole, voting.target);
-  console.log(`Granted USER_ROLE to Voting at ${voting.target}`);
+  // await accessControlManager.grantRoleToContract(userRole, voting.target);
+  // console.log(`Granted USER_ROLE to Voting at ${voting.target}`);
 
   await accessControlManager.grantRoleToContract(userRole, subscription.target);
   console.log(`Granted USER_ROLE to Subscription at ${subscription.target}`);

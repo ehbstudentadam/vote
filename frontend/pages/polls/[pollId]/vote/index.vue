@@ -21,15 +21,24 @@
                 </div>
             </div>
 
+            <!-- Subscription Section -->
+            <div class="subscription-section" v-if="!isSubscribed">
+                <h2>Subscribe to Poll</h2>
+                <p>You need NFTs for this poll to participate. Subscribe now!</p>
+                <button @click="subscribeToPoll" class="subscribe-button" :disabled="!canSubscribe">
+                    Subscribe
+                </button>
+            </div>
+
             <!-- Voting Options -->
-            <div class="poll-options">
+            <div class="poll-options" v-else>
                 <h2>Voting Options:</h2>
                 <div v-for="(option, index) in pollOptions" :key="index" class="poll-option-row">
                     <button class="vote-adjust" @click="adjustVote(index, -1)" :disabled="votes[index] === 0">
                         -
                     </button>
                     <div class="option-title">{{ option.description }}</div>
-                    <div class="vote-count">{{ votes[index] }}</div>
+                    <div class="vote-count">Total Votes: {{ globalVotes[index] + votes[index] }}</div>
                     <button class="vote-adjust" @click="adjustVote(index, 1)" :disabled="remainingTokens === 0">
                         +
                     </button>
@@ -37,7 +46,7 @@
             </div>
 
             <!-- Vote Button -->
-            <div class="vote-button-container">
+            <div class="vote-button-container" v-if="isSubscribed">
                 <button @click="castVotes" class="vote-button" :disabled="!canVote">
                     VOTE
                 </button>
@@ -49,15 +58,20 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 import { readContract, writeContract } from '@wagmi/core';
+import { useWriteContract, useAccount } from '@wagmi/vue';
 import { useRouter } from 'vue-router';
 import { config } from '~/wagmi';
 import PollArtifact from '~/artifacts/Poll.json';
 import TokenDistributionArtifact from '~/artifacts/TokenDistribution.json';
+import SubscriptionArtifact from '~/artifacts/Subscription.json';
 
 // Contract details
 const pollABI = PollArtifact.abi;
 const tokenDistributionABI = TokenDistributionArtifact.abi;
+const subscriptionABI = SubscriptionArtifact.abi;
+
 const tokenDistributionAddress = '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512';
+const subscriptionAddress = '0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9';
 
 // Vue refs for state management
 const pollTitle = ref('');
@@ -69,135 +83,134 @@ const location = ref('');
 const minTokensRequired = ref('');
 const pollOptions = ref([]);
 const votes = ref([]);
+const globalVotes = ref([]); // To store global vote counts
+const myVotes = ref([]);     // To store user's individual votes
 const userTokens = ref(0);
 const remainingTokens = ref(0);
 const loading = ref(false);
 const canVote = ref(false);
+const canSubscribe = ref(false);
+const isSubscribed = ref(false);
 
 // Router and route parameter for poll ID
 import { useRoute } from 'vue-router';
 const route = useRoute();
 const pollId = route.params.pollId;
 
-import { useAccount } from '@wagmi/vue';
 const { address, isConnected } = useAccount();
 
 // Fetch poll data
-const fetchPollData = () => {
-    loading.value = true;
-    const pollDetails = {};
+const fetchPollData = async () => {
+    try {
+        loading.value = true;
+        const pollDetails = {};
 
-    // Fetch poll title
+        // Fetch poll details
+        const [
+            title,
+            endDateRaw,
+            isFinalizedFlag,
+            pollCreator,
+            eligibility,
+            totalOptionsRaw,
+        ] = await Promise.all([
+            readContract(config, { address: pollId, abi: pollABI, functionName: 'pollTitle' }),
+            readContract(config, { address: pollId, abi: pollABI, functionName: 'endDate' }),
+            readContract(config, { address: pollId, abi: pollABI, functionName: 'isFinalized' }),
+            readContract(config, { address: pollId, abi: pollABI, functionName: 'creator' }),
+            readContract(config, { address: pollId, abi: pollABI, functionName: 'getEligibility' }),
+            readContract(config, { address: pollId, abi: pollABI, functionName: 'getTotalOptions' }),
+        ]);
+
+        // Populate basic details
+        pollDetails.title = title || 'Unknown';
+        pollDetails.endDate = endDateRaw
+            ? new Date(Number(endDateRaw.toString()) * 1000).toLocaleString()
+            : 'N/A';
+        pollDetails.isFinalized = isFinalizedFlag;
+        pollDetails.creator = pollCreator || 'Unknown';
+        [pollDetails.minAge, pollDetails.location, pollDetails.minTokensRequired] =
+            eligibility.map((item) => item.toString());
+
+        // Fetch options
+        const totalOptions = Number(totalOptionsRaw.toString());
+        const globalVoteCounts = [];
+
+        for (let i = 0; i < totalOptions; i++) {
+            // Fetch global votes
+            const optionData = await readContract(config, {
+                address: pollId,
+                abi: pollABI,
+                functionName: 'votingOptions',
+                args: [i],
+            });
+            globalVoteCounts.push(Number(optionData[1].toString())); // Global vote count
+        }
+
+        // Update state
+        pollDetails.options = globalVoteCounts.map((count, index) => ({
+            description: `Option ${index + 1}`,
+            totalVotes: count,
+        }));
+        globalVotes.value = globalVoteCounts;
+        votes.value = Array(totalOptions).fill(0); // Reset votes for voting
+        updatePollData(pollDetails);
+    } catch (error) {
+        console.error('Error fetching poll data:', error);
+    } finally {
+        loading.value = false;
+    }
+};
+
+
+
+// Check if user is subscribed
+const checkSubscriptionStatus = () => {
     readContract(config, {
-        address: pollId,
-        abi: pollABI,
-        functionName: 'pollTitle',
-        account: address.value,
+        address: subscriptionAddress,
+        abi: subscriptionABI,
+        functionName: 'isUserSubscribedToPoll',
+        args: [pollId, address.value],
+        account: address.value
     })
-        .then((data) => {
-            pollDetails.title = data || 'Unknown';
-            return readContract(config, {
-                address: pollId,
-                abi: pollABI,
-                functionName: 'endDate',
-                account: address.value,
-            });
-        })
-        .then((data) => {
-            pollDetails.endDate = data
-                ? new Date(Number(data) * 1000).toLocaleString()
-                : 'N/A';
-            return readContract(config, {
-                address: pollId,
-                abi: pollABI,
-                functionName: 'isFinalized',
-                account: address.value,
-            });
-        })
-        .then((data) => {
-            pollDetails.isFinalized = data || false;
-            return readContract(config, {
-                address: pollId,
-                abi: pollABI,
-                functionName: 'creator',
-                account: address.value,
-            });
-        })
-        .then((data) => {
-            pollDetails.creator = data || 'Unknown';
-            return readContract(config, {
-                address: pollId,
-                abi: pollABI,
-                functionName: 'getEligibility',
-                account: address.value,
-            });
-        })
-        .then((data) => {
-            if (Array.isArray(data)) {
-                [pollDetails.minAge, pollDetails.location, pollDetails.minTokensRequired] =
-                    data;
-            }
-            return readContract(config, {
-                address: pollId,
-                abi: pollABI,
-                functionName: 'getTotalOptions',
-                account: address.value,
-            });
-        })
-        .then((data) => {
-            const totalOptions = Number(data || 0);
-            pollDetails.totalOptions = totalOptions;
-            const options = [];
-            let completed = 0;
-
-            if (totalOptions > 0) {
-                for (let i = 0; i < totalOptions; i++) {
-                    readContract(config, {
-                        address: pollId,
-                        abi: pollABI,
-                        functionName: 'votingOptions',
-                        args: [i],
-                        account: address.value,
-                    })
-                        .then((optionData) => {
-                            options.push({
-                                description: optionData?.[0] || 'N/A',
-                                voteCount: Number(optionData?.[1] || 0),
-                            });
-                            completed++;
-                            if (completed === totalOptions) {
-                                pollDetails.options = options;
-                                updatePollData(pollDetails);
-                            }
-                        })
-                        .catch((error) => {
-                            console.error(`Failed to fetch option ${i}:`, error);
-                            completed++;
-                            if (completed === totalOptions) {
-                                pollDetails.options = options;
-                                updatePollData(pollDetails);
-                            }
-                        });
-                }
-            } else {
-                pollDetails.options = [];
-                updatePollData(pollDetails);
-            }
+        .then((subscribed) => {
+            isSubscribed.value = subscribed;
+            canSubscribe.value = !subscribed;
         })
         .catch((error) => {
-            console.error('Error fetching poll data:', error);
-            loading.value = false;
+            console.error('Error checking subscription status:', error);
+        });
+};
+
+// Subscribe to poll
+const subscribeToPoll = () => {
+    writeContract(config, {
+        address: subscriptionAddress,
+        abi: subscriptionABI,
+        functionName: 'subscribeUser',
+        args: [pollId, address.value],
+        account: address.value
+    })
+        .then(() => {
+            console.log('Successfully subscribed to the poll!');
+            isSubscribed.value = true;
+            canSubscribe.value = false;
+            fetchUserTokens();
+        })
+        .catch((error) => {
+            console.error('Error subscribing to poll:', error);
         });
 };
 
 // Fetch user voting tokens
 const fetchUserTokens = () => {
+    const pollNFTId = BigInt(pollId); // Derive poll NFT ID
     readContract(config, {
         address: tokenDistributionAddress,
         abi: tokenDistributionABI,
         functionName: 'balanceOf',
-        args: [address.value],
-        account: address.value,
+        args: [address.value, pollNFTId],
+        account: address.value
     })
         .then((balance) => {
             userTokens.value = Number(balance || 0);
@@ -220,7 +233,6 @@ const updatePollData = (details) => {
     minTokensRequired.value = details.minTokensRequired || 'N/A';
     pollOptions.value = details.options || [];
     votes.value = Array(details.options.length).fill(0);
-    loading.value = false;
 };
 
 // Adjust vote for an option
@@ -228,30 +240,68 @@ const adjustVote = (index, change) => {
     if (votes.value[index] + change >= 0 && remainingTokens.value - change >= 0) {
         votes.value[index] += change;
         remainingTokens.value -= change;
-        canVote.value = remainingTokens.value > 0;
+        canVote.value = remainingTokens.value > -1;
     }
 };
 
-// Cast votes
-const castVotes = () => {
-    const totalVotes = votes.value.reduce((sum, count) => sum + count, 0);
-    if (totalVotes > 0) {
-        for (let i = 0; i < votes.value.length; i++) {
-            if (votes.value[i] > 0) {
-                writeContract(config, {
-                    address: pollId,
-                    abi: pollABI,
-                    functionName: 'castVote',
-                    args: [address.value, i, votes.value[i]],
-                })
-                    .then(() => {
-                        console.log(`Voted ${votes.value[i]} for option ${i}`);
-                    })
-                    .catch((error) => {
-                        console.error(`Error voting for option ${i}:`, error);
-                    });
-            }
+
+// Write contract hooks
+const { writeContractAsync: approveContractAsync } = useWriteContract({
+    address: tokenDistributionAddress, // Address of the TokenDistribution contract
+    abi: tokenDistributionABI, // ABI of the TokenDistribution contract
+    functionName: 'setApprovalForAll',
+});
+
+const { writeContractAsync: castVotesAsync } = useWriteContract({
+    address: pollId, // Address of the Poll contract
+    abi: pollABI, // ABI of the Poll contract
+    functionName: 'castVotes',
+});
+
+const castVotes = async () => {
+    try {
+        // Ensure a wallet is connected
+        if (!address.value) {
+            throw new Error('No connected wallet. Please connect your wallet.');
         }
+
+        // Approve the Poll contract to manage NFTs
+        console.log('Granting approval for the Poll contract...');
+        await approveContractAsync({
+            address: tokenDistributionAddress, // Address of the TokenDistribution contract
+            abi: tokenDistributionABI, // ABI of the TokenDistribution contract
+            functionName: 'setApprovalForAll',
+            args: [pollId, true], // Approve the Poll contract
+            account: address.value,
+        });
+
+        // Prepare optionIndexes and amounts
+        const optionIndexes = votes.value
+            .map((vote, index) => (vote > 0 ? index : null))
+            .filter((index) => index !== null)
+            .map(Number); // Ensure they are numbers
+
+        const amounts = votes.value
+            .filter((vote) => vote > 0)
+            .map(Number); // Ensure they are numbers
+
+        console.log('Option Indexes:', optionIndexes);
+        console.log('Amounts:', amounts);
+
+        // Write to the contract
+        const tx = await castVotesAsync({
+            address: pollId,
+            abi: pollABI,
+            functionName: 'castVotes',
+            args: [optionIndexes, amounts],
+            account: address.value,
+        });
+
+        console.log('Votes cast successfully:', tx);
+        alert('Votes cast successfully!');
+    } catch (error) {
+        console.error('Error casting votes:', error);
+        alert(error.message || 'Failed to cast votes');
     }
 };
 
@@ -260,9 +310,11 @@ onMounted(() => {
     if (pollId && address.value && isConnected.value) {
         fetchPollData();
         fetchUserTokens();
+        checkSubscriptionStatus();
     }
 });
 </script>
+
 
 <style>
 .poll-container {

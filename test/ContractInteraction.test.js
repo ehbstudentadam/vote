@@ -9,7 +9,7 @@ const userWallet1 = new ethers.Wallet(userPrivateKey1).connect(ethers.provider);
 
 describe("Contract Interactions Test Suite", function () {
     let deployer, user1, user2, instance1;
-    let accessControlManager, pollFactory, tokenDistribution, userRegistration, subscription, voting, poll;
+    let accessControlManager, pollFactory, tokenDistribution, userRegistration, subscription, poll;
 
     before(async function () {
         [deployer, user1, user2, instance1] = await ethers.getSigners();
@@ -24,8 +24,8 @@ describe("Contract Interactions Test Suite", function () {
         accessControlManager = await deployContract("AccessControlManager");
         userRegistration = await deployContract("UserRegistration", await accessControlManager.getAddress());
         tokenDistribution = await deployContract("TokenDistribution", await accessControlManager.getAddress());
-        subscription = await deployContract("Subscription", await tokenDistribution.getAddress(),await userRegistration.getAddress(), await accessControlManager.getAddress());
-        voting = await deployContract("Voting", await tokenDistribution.getAddress(), await accessControlManager.getAddress());
+        subscription = await deployContract("Subscription", await tokenDistribution.getAddress(), await userRegistration.getAddress(), await accessControlManager.getAddress());
+        //voting = await deployContract("Voting", await tokenDistribution.getAddress(), await accessControlManager.getAddress());
         pollFactory = await deployContract("PollFactory", await tokenDistribution.getAddress(), await accessControlManager.getAddress());
 
         // Grant roles to contracts
@@ -54,7 +54,7 @@ describe("Contract Interactions Test Suite", function () {
             ADMIN_ROLE: await accessControlManager.ADMIN_ROLE(),
             DISTRIBUTOR_ROLE: await accessControlManager.DISTRIBUTOR_ROLE()
         };
-        
+
         const contractsToAssignRoles = [
             { role: roles.USER_ROLE, address: await userRegistration.getAddress() },
             { role: roles.INSTANCE_ROLE, address: await userRegistration.getAddress() },
@@ -62,8 +62,8 @@ describe("Contract Interactions Test Suite", function () {
             { role: roles.DISTRIBUTOR_ROLE, address: await tokenDistribution.getAddress() },
             { role: roles.DISTRIBUTOR_ROLE, address: await pollFactory.getAddress() },
             { role: roles.INSTANCE_ROLE, address: await pollFactory.getAddress() },
-            { role: roles.DISTRIBUTOR_ROLE, address: await voting.getAddress() },
-            { role: roles.USER_ROLE, address: await voting.getAddress() },
+            // { role: roles.DISTRIBUTOR_ROLE, address: await voting.getAddress() },
+            // { role: roles.USER_ROLE, address: await voting.getAddress() },
             { role: roles.USER_ROLE, address: await subscription.getAddress() },
             { role: roles.DISTRIBUTOR_ROLE, address: await subscription.getAddress() }
         ];
@@ -78,12 +78,18 @@ describe("Contract Interactions Test Suite", function () {
     }
 
     async function verifyUserSubscription(pollAddress, user, minTokensRequired) {
-        const userBalance = await tokenDistribution.balanceOf(user.address);
-        const pollBalanceAfter = await tokenDistribution.balanceOf(pollAddress);
+        // Convert pollAddress to pollId
+        const pollId = BigInt(pollAddress);
 
+        // Check the user's balance of NFTs for this poll
+        const userBalance = await tokenDistribution.balanceOf(user.address, pollId);
+        const pollBalanceAfter = await tokenDistribution.balanceOf(pollAddress, pollId);
+
+        // Validate balances
         expect(userBalance).to.equal(minTokensRequired);
         expect(pollBalanceAfter).to.equal(1000 - minTokensRequired);
 
+        // Query events to verify the subscription
         const events = await subscription.queryFilter(subscription.filters.UserSubscribed());
         const userSubscribedEvent = events.find(event =>
             event.args.user === user.address &&
@@ -91,12 +97,14 @@ describe("Contract Interactions Test Suite", function () {
             event.args.tokenAmount.toString() === minTokensRequired.toString()
         );
 
+        // Ensure the event exists and matches expectations
         expect(userSubscribedEvent).to.not.be.undefined;
         expect(userSubscribedEvent.args.user).to.equal(user.address);
         expect(userSubscribedEvent.args.poll).to.equal(pollAddress);
         expect(userSubscribedEvent.args.tokenAmount).to.equal(minTokensRequired);
     }
 
+    //to be removed
     async function getPermitSignature(owner, spender, value, deadline, token, nonce) {
         const domain = {
             name: await token.name(),
@@ -157,54 +165,55 @@ describe("Contract Interactions Test Suite", function () {
         expect(pollMinTokensRequired).to.equal(100);
     });
 
-    it("Should allow a user to subscribe to a poll", async function () {
+    it("Should allow a user to vote on a poll", async function () {
+        // Create a new poll and subscribe userWallet1 to it
         const poll = await createPoll(instance1, ["Option1", "Option2"], "Sample Poll", 18, "belgium", 100, 1000);
         const pollAddress = await poll.getAddress();
 
-        const initialPollBalance = await tokenDistribution.balanceOf(pollAddress);
+        // Derive pollId based on pollAddress
+        const pollId = BigInt(pollAddress);
+
+        // Check the initial balance of the poll for the NFT token
+        const initialPollBalance = await tokenDistribution.balanceOf(pollAddress, pollId);
         expect(initialPollBalance).to.equal(1000);
 
+        // Subscribe userWallet1 to the poll
         await subscribeUserToPoll(userWallet1, pollAddress);
-        await verifyUserSubscription(pollAddress, userWallet1, 100);
-    });
 
-    it("Should allow a user to vote on a poll", async function () {
-        // Create a new poll and subscribe user1 to it
-        const poll = await createPoll(instance1, ["Option1", "Option2"], "Sample Poll", 18, "belgium", 100, 1000);
-        const pollAddress = await poll.getAddress();
-        await subscribeUserToPoll(userWallet1, pollAddress);
+        // Verify user subscription
+        await verifyUserSubscription(pollAddress, userWallet1, 100);
 
         // Define vote details (which options and how many tokens to allocate)
         const voteOptions = { optionIndexes: [0, 1], amounts: [40, 60] };
 
-        // Generate EIP-2612 permit signature for user1 to authorize token transfer
-        const userWallet1Address = await userWallet1.getAddress();
-        const votingAddress = await voting.getAddress();
-        const nonce = await tokenDistribution.nonces(userWallet1Address);
-        const deadline = Math.floor(Date.now() / 1000) + 3600;
+        // Set approval for the Poll contract to transfer NFTs on behalf of userWallet1
+        await tokenDistribution.connect(userWallet1).setApprovalForAll(pollAddress, true);
 
-        const { v, r, s } = await getPermitSignature(
-            userWallet1,
-            votingAddress,
-            100,
-            deadline,
-            tokenDistribution,
-            nonce
-        );
+        // Check initial vote counts before casting votes
+        let initialVoteCountOption0 = await poll.getVoteCount(0);
+        let initialVoteCountOption1 = await poll.getVoteCount(1);
+        expect(initialVoteCountOption0).to.equal(0);
+        expect(initialVoteCountOption1).to.equal(0);
 
-        // Cast votes on the poll with generated permit signature
-        await voting.connect(userWallet1).castVotes(
-            pollAddress,
-            voteOptions,
-            { deadline, v, r, s },
-            { deadline, v, r, s }
-        );
+        // Cast votes on the poll by transferring the required NFTs for voting
+        await poll.connect(userWallet1).castVotes(voteOptions.optionIndexes, voteOptions.amounts);
 
-        // Log the actual values before assertions
-        const voteCountOption0 = await poll.getVoteCount(0);
-        const voteCountOption1 = await poll.getVoteCount(1);
+        // Check the updated vote counts after casting votes
+        const updatedVoteCountOption0 = await poll.getVoteCount(0);
+        const updatedVoteCountOption1 = await poll.getVoteCount(1);
 
-        expect(voteCountOption0).to.equal(40);
-        expect(voteCountOption1).to.equal(60);
+        // Assert that the votes have been recorded correctly
+        expect(updatedVoteCountOption0).to.equal(40);
+        expect(updatedVoteCountOption1).to.equal(60);
+
+        // Verify the updated NFT balances
+        const userBalanceAfterVote = await tokenDistribution.balanceOf(userWallet1.address, pollId);
+        const pollBalanceAfterVote = await tokenDistribution.balanceOf(pollAddress, pollId);
+
+        // User should have spent their tokens to vote, and poll should hold the used tokens
+        expect(userBalanceAfterVote).to.equal(100 - (40 + 60));
+        expect(pollBalanceAfterVote).to.equal(1000 - 100 + (40 + 60));
     });
+
+
 });

@@ -70,7 +70,7 @@ import { useRouter } from 'vue-router';
 import { useWriteContract, useAccount } from '@wagmi/vue';
 import PollFactoryArtifact from '~/artifacts/PollFactory.json';
 
-const pollFactoryAddress = '0x5FC8d32690cc91D4c39d9d3abcBD16989F875707';
+const pollFactoryAddress = '0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9';
 const pollFactoryABI = PollFactoryArtifact.abi;
 
 // Form data
