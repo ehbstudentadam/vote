@@ -86,7 +86,7 @@ Follow these steps to set up and run the project:
     npm run dev
    ```
 
-### Setting Up an Alchemy for Sepolia Testnet
+## 🛠️ Setting Up an Alchemy for Sepolia Testnet
 
 To connect to the Sepolia testnet, follow these steps to obtain an **RPC URL** from Alchemy:
 
@@ -116,7 +116,7 @@ To connect to the Sepolia testnet, follow these steps to obtain an **RPC URL** f
 
 You’re now ready to connect your project to the Sepolia testnet using Alchemy!
 
-### Configure MetaMask for Testing
+## 🛠️ Configure MetaMask for Testing
 
 To interact with the blockchain, you need to configure your MetaMask wallet to connect to both your **localhost Hardhat network** and the **Sepolia testnet**. Here’s how:
 
@@ -147,9 +147,38 @@ Your MetaMask wallet is now configured to connect to the Sepolia testnet.
 - To switch networks, open MetaMask, click the network dropdown, and select either **Hardhat Localhost** or **Sepolia Testnet**.
 - Ensure the correct network is selected before interacting with your smart contracts.
 
----
-
 You’re now ready to test on both your local Hardhat network and the Sepolia testnet!
+
+## 🛠️ Deploying Contracts to Sepolia and Frontend to GitHub Pages
+
+1. **Deploy Contracts to Sepolia**
+    - Run the following command from the project root:  
+    `npx hardhat run scripts/deployAndAssignRoles.js --network sepolia`  
+
+    Ensure you have sufficient Sepolia ETH from the Sepolia faucet for the deployment.  
+    Once deployed, note down the contract addresses printed in the terminal.
+
+2. **Configure Frontend**  
+    - Copy the deployed contract addresses into the `/frontend/.env` file.
+    - Edit the `frontend/wagmi.ts` file:  
+        - Remove the localhost or hardhat network configurations to avoid conflicts with Sepolia.
+
+3. **Build the Frontend**  
+    - Navigate to the /frontend folder and run:  
+    `npm run build`   
+
+    In the /frontend/.output/public folder, create a .nojekyll file to ensure GitHub Pages processes the _nuxt folder correctly:  
+    - `touch .output/public/.nojekyll`
+
+4. **Deploy Frontend to GitHub Pages**
+From the /frontend folder, deploy to GitHub Pages:
+    - `npm run deploy`
+
+5. **Verify Deployment**  
+Open your browser and navigate to:  
+[https://ehbstudentadam.github.io/vote](https://ehbstudentadam.github.io/vote)  
+
+Ensure the Sepolia network is selected in MetaMask.
 
 ## 🚀 Features
 
