@@ -56,6 +56,10 @@
 </template>
 
 <script setup>
+definePageMeta({
+  middleware: 'auth',
+});
+
 import { ref, onMounted } from 'vue';
 import { readContract, writeContract } from '@wagmi/core';
 import { useWriteContract, useAccount } from '@wagmi/vue';

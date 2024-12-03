@@ -21,6 +21,10 @@
 </template>
 
 <script setup>
+definePageMeta({
+  middleware: 'auth',
+});
+
 import { ref, onMounted } from 'vue';
 import { readContract } from '@wagmi/core';
 import { useRouter } from 'vue-router';

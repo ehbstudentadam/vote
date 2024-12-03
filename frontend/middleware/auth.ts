@@ -58,46 +58,34 @@ function checkRegistrationStatus(address: string): Promise<'user' | 'instance' |
 export default defineNuxtRouteMiddleware(async (to) => {
   const { address, isConnected } = useAccount();
 
-  // Watch for wallet disconnection and redirect to the portal if disconnected
-  watch(isConnected, (connected) => {
-    if (!connected) {
-      navigateTo('/portal');
-    }
-  });
-
-  // Redirect to the portal if the wallet is not connected
-  if (!isConnected.value) {
-    return navigateTo('/portal');
-  }
-
-  // If no address is available, redirect to the registration page
-  if (!address.value) {
+  // Redirect to /portal if the wallet is not connected
+  if (!isConnected.value || !address.value) {
     return navigateTo('/portal');
   }
 
   // Check registration status
   const status = await checkRegistrationStatus(address.value);
 
-  // Handle redirection based on the user status
-  if (status === 'user' && to.path === '/register') {
-    return navigateTo('/voter');
-  }
+  // Define path restrictions for user and instance roles
+  const voterRestictionPaths = ['/', '/register', '/dashboard/instance', '/polls/new'];
+  const instanceRestricitonPaths = ['/', '/register', '/dashboard/voter', '/polls/[pollId]/vote'];
 
-  if (status === 'instance' && to.path === '/register') {
-    return navigateTo('/dashboard/instance'); 
-  }
-
+  // Redirect users based on their status and the current path
   if (status === 'not-registered' && to.path !== '/register') {
     return navigateTo('/register');
   }
 
-  if (status === 'instance') {
-    return navigateTo('/dashboard/instance');
-  }
-
-  if (status === 'user') {
+  if (status === 'user' && voterRestictionPaths.includes(to.path) && to.path !== '/dashboard/voter') {
     return navigateTo('/dashboard/voter');
   }
 
+  if (status === 'instance' && instanceRestricitonPaths.includes(to.path) && to.path !== '/dashboard/instance') {
+    return navigateTo('/dashboard/instance');
+  }
 
+  // If the user is already on their correct dashboard, no further action is needed
+  if ((status === 'user' && to.path === '/dashboard/voter') ||
+    (status === 'instance' && to.path === '/dashboard/instance')) {
+    return;
+  }
 });
