@@ -9,8 +9,7 @@ export default defineNuxtPlugin(() => {
     // Watch for disconnection
     watch(isConnected, (connected) => {
         if (!connected) {
-            console.log('Wallet disconnected. Redirecting to /portal.');
-            router.push('/portal'); // Redirect to portal if wallet is disconnected
+            router.push('/portal');
         }
     });
 });

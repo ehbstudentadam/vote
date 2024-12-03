@@ -15,17 +15,21 @@
                     <p>Creator: {{ creator || 'N/A' }}</p>
                     <p>Minimum Age: {{ minAge || 'N/A' }}</p>
                     <p>Location Restriction: {{ location || 'N/A' }}</p>
-                    <p>Minimum Tokens Required: {{ minTokensRequired || 'N/A' }}</p>
+                    <p>Tokens Per Voter: {{ minTokensRequired || 'N/A' }}</p>
+                    <p>Your Voting Tokens: {{ userTokens }}</p>
                     <p>Is Finalized: {{ isFinalized ? 'Yes' : 'No' }}</p>
-                    <p>Voting Tokens: {{ userTokens }}</p>
                 </div>
             </div>
 
             <!-- Subscription Section -->
             <div class="subscription-section" v-if="!isSubscribed">
                 <h2>Subscribe to Poll</h2>
-                <p>You need NFTs for this poll to participate. Subscribe now!</p>
-                <button @click="subscribeToPoll" class="subscribe-button" :disabled="!canSubscribe">
+                <p v-if="subscriptionError" class="error-message">{{ subscriptionError }}</p>
+                <p v-else-if="!isEligible" class="eligibility-message">
+                    You are not eligible to subscribe to this poll. Please check the eligibility criteria.
+                </p>
+                <p v-else>You need NFTs for this poll to participate. Subscribe now!</p>
+                <button @click="subscribeToPoll" class="subscribe-button" :disabled="!isEligible || !canSubscribe">
                     Subscribe
                 </button>
             </div>
@@ -57,13 +61,12 @@
 
 <script setup>
 definePageMeta({
-  middleware: 'auth',
+    middleware: 'auth',
 });
 
 import { ref, onMounted } from 'vue';
 import { readContract, writeContract } from '@wagmi/core';
 import { useWriteContract, useAccount } from '@wagmi/vue';
-import { useRouter } from 'vue-router';
 import { config } from '~/wagmi';
 import PollArtifact from '~/artifacts/Poll.json';
 import TokenDistributionArtifact from '~/artifacts/TokenDistribution.json';
@@ -87,14 +90,15 @@ const location = ref('');
 const minTokensRequired = ref('');
 const pollOptions = ref([]);
 const votes = ref([]);
-const globalVotes = ref([]); // To store global vote counts
-const myVotes = ref([]);     // To store user's individual votes
+const globalVotes = ref([]);
 const userTokens = ref(0);
 const remainingTokens = ref(0);
 const loading = ref(false);
 const canVote = ref(false);
 const canSubscribe = ref(false);
 const isSubscribed = ref(false);
+const isEligible = ref(false);
+const subscriptionError = ref('');
 
 // Router and route parameter for poll ID
 import { useRoute } from 'vue-router';
@@ -139,25 +143,28 @@ const fetchPollData = async () => {
         // Fetch options
         const totalOptions = Number(totalOptionsRaw.toString());
         const globalVoteCounts = [];
+        const optionDescriptions = [];
 
         for (let i = 0; i < totalOptions; i++) {
-            // Fetch global votes
+            // Fetch global votes and descriptions
             const optionData = await readContract(config, {
                 address: pollId,
                 abi: pollABI,
                 functionName: 'votingOptions',
                 args: [i],
             });
+            optionDescriptions.push(optionData[0]); // Option description
             globalVoteCounts.push(Number(optionData[1].toString())); // Global vote count
         }
 
         // Update state
         pollDetails.options = globalVoteCounts.map((count, index) => ({
-            description: `Option ${index + 1}`,
+            description: optionDescriptions[index] || `Option ${index + 1}`,
             totalVotes: count,
         }));
+
         globalVotes.value = globalVoteCounts;
-        votes.value = Array(totalOptions).fill(0); // Reset votes for voting
+        votes.value = Array(totalOptions).fill(0);
         updatePollData(pollDetails);
     } catch (error) {
         console.error('Error fetching poll data:', error);
@@ -166,43 +173,60 @@ const fetchPollData = async () => {
     }
 };
 
-
-
 // Check if user is subscribed
-const checkSubscriptionStatus = () => {
-    readContract(config, {
-        address: subscriptionAddress,
-        abi: subscriptionABI,
-        functionName: 'isUserSubscribedToPoll',
-        args: [pollId, address.value],
-        account: address.value
-    })
-        .then((subscribed) => {
-            isSubscribed.value = subscribed;
-            canSubscribe.value = !subscribed;
-        })
-        .catch((error) => {
-            console.error('Error checking subscription status:', error);
-        });
+const checkSubscriptionStatus = async () => {
+    try {
+        const [subscribed, eligible] = await Promise.all([
+            readContract(config, {
+                address: subscriptionAddress,
+                abi: subscriptionABI,
+                functionName: 'isUserSubscribedToPoll',
+                args: [pollId, address.value],
+                account: address.value,
+            }),
+            readContract(config, {
+                address: subscriptionAddress,
+                abi: subscriptionABI,
+                functionName: 'checkEligibility',
+                args: [pollId, address.value],
+                account: address.value,
+            }),
+        ]);
+
+        isSubscribed.value = subscribed;
+        canSubscribe.value = !subscribed;
+        isEligible.value = eligible;
+        subscriptionError.value = ''; // Clear any previous errors
+    } catch (error) {
+        subscriptionError.value = 'Failed to check subscription status. Please try again later.';
+        console.error('Error checking subscription status:', error);
+    }
 };
 
 // Subscribe to poll
-const subscribeToPoll = () => {
-    writeContract(config, {
-        address: subscriptionAddress,
-        abi: subscriptionABI,
-        functionName: 'subscribeUser',
-        args: [pollId, address.value],
-        account: address.value
-    })
-        .then(() => {
-            isSubscribed.value = true;
-            canSubscribe.value = false;
-            fetchUserTokens();
-        })
-        .catch((error) => {
-            console.error('Error subscribing to poll:', error);
+const subscribeToPoll = async () => {
+    if (!isEligible.value) {
+        subscriptionError.value = 'You are not eligible to subscribe to this poll.';
+        return;
+    }
+
+    try {
+        await writeContract(config, {
+            address: subscriptionAddress,
+            abi: subscriptionABI,
+            functionName: 'subscribeUser',
+            args: [pollId, address.value],
+            account: address.value,
         });
+
+        isSubscribed.value = true;
+        canSubscribe.value = false;
+        subscriptionError.value = ''; // Clear any previous errors
+        fetchUserTokens();
+    } catch (error) {
+        subscriptionError.value = 'Failed to subscribe to the poll. Please try again.';
+        console.error('Error subscribing to poll:', error);
+    }
 };
 
 // Fetch user voting tokens
@@ -247,17 +271,16 @@ const adjustVote = (index, change) => {
     }
 };
 
-
 // Write contract hooks
 const { writeContractAsync: approveContractAsync } = useWriteContract({
-    address: tokenDistributionAddress, // Address of the TokenDistribution contract
-    abi: tokenDistributionABI, // ABI of the TokenDistribution contract
+    address: tokenDistributionAddress,
+    abi: tokenDistributionABI,
     functionName: 'setApprovalForAll',
 });
 
 const { writeContractAsync: castVotesAsync } = useWriteContract({
-    address: pollId, // Address of the Poll contract
-    abi: pollABI, // ABI of the Poll contract
+    address: pollId,
+    abi: pollABI,
     functionName: 'castVotes',
 });
 
@@ -270,10 +293,10 @@ const castVotes = async () => {
 
         // Approve the Poll contract to manage NFTs
         await approveContractAsync({
-            address: tokenDistributionAddress, // Address of the TokenDistribution contract
-            abi: tokenDistributionABI, // ABI of the TokenDistribution contract
+            address: tokenDistributionAddress,
+            abi: tokenDistributionABI,
             functionName: 'setApprovalForAll',
-            args: [pollId, true], // Approve the Poll contract
+            args: [pollId, true],
             account: address.value,
         });
 
@@ -281,11 +304,11 @@ const castVotes = async () => {
         const optionIndexes = votes.value
             .map((vote, index) => (vote > 0 ? index : null))
             .filter((index) => index !== null)
-            .map(Number); // Ensure they are numbers
+            .map(Number);
 
         const amounts = votes.value
             .filter((vote) => vote > 0)
-            .map(Number); // Ensure they are numbers
+            .map(Number);
 
         // Write to the contract
         const tx = await castVotesAsync({
@@ -295,8 +318,10 @@ const castVotes = async () => {
             args: [optionIndexes, amounts],
             account: address.value,
         });
-        
+
         alert('Votes cast successfully!');
+
+        window.location.reload();
     } catch (error) {
         console.error('Error casting votes:', error);
         alert(error.message || 'Failed to cast votes');
@@ -312,7 +337,6 @@ onMounted(() => {
     }
 });
 </script>
-
 
 <style scoped>
 .poll-container {
@@ -488,5 +512,22 @@ h2 {
 .subscribe-button:disabled {
     background-color: #aaa;
     cursor: not-allowed;
+}
+
+.error-message {
+    font-size: 1rem;
+    color: #ff4d4d;
+    /* Red color for error */
+    margin-bottom: 1rem;
+    font-weight: bold;
+    text-align: center;
+}
+
+.eligibility-message {
+    font-size: 1rem;
+    color: #ff4d4d;
+    /* Red color for eligibility errors */
+    margin-bottom: 1rem;
+    font-weight: bold;
 }
 </style>
