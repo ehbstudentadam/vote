@@ -49,7 +49,7 @@ Here’s a brief explanation of each contract and its responsibility:
 
 ![contract interaction](images_md/rome.drawio.png)
 
-## 🛠️ How to Run the Project
+## 🛠️ How to Run the Project Locally
 
 Follow these steps to set up and run the project:
 
@@ -86,6 +86,70 @@ Follow these steps to set up and run the project:
     npm run dev
    ```
 
+### Setting Up an Alchemy for Sepolia Testnet
+
+To connect to the Sepolia testnet, follow these steps to obtain an **RPC URL** from Alchemy:
+
+1. **Create an Alchemy Account**  
+   - Sign up at [alchemy.com](https://www.alchemy.com/) and log in.
+
+2. **Create a New Project**  
+   - In the Alchemy Dashboard, create a new project, select **Ethereum**, and choose the **Sepolia Testnet**.
+
+3. **Get the RPC URL**  
+   - Navigate to your project, locate the **HTTP URL** under the API section.  
+   - The URL will look like this:  
+     `https://eth-sepolia.g.alchemy.com/v2/<ALCHEMY_API_KEY>`
+
+4. **Add to `.env` File**  
+   - Copy the RPC URL and paste it into your `.env` file:  
+     `VITE_ALCHEMY_API_URL=https://eth-sepolia.g.alchemy.com/v2/<ALCHEMY_API_KEY>`
+
+5. **Secure Your Key**  
+   - Keep your `.env` file private and avoid sharing your API key.
+
+6. **Get Sepolia ETH from a Faucet**  
+    To interact with the Sepolia testnet, you'll need test ETH:
+    - Visit the [Sepolia Faucet](https://www.alchemy.com/faucets/ethereum-sepolia) or search for a trusted Sepolia faucet.
+    - Paste your wallet address to receive test ETH.
+    - Use this ETH for deploying and testing smart contracts.
+
+You’re now ready to connect your project to the Sepolia testnet using Alchemy!
+
+### Configure MetaMask for Testing
+
+To interact with the blockchain, you need to configure your MetaMask wallet to connect to both your **localhost Hardhat network** and the **Sepolia testnet**. Here’s how:
+
+
+#### **1. Add the Localhost Hardhat Network**
+The Hardhat network runs on your local machine for development and testing. Follow these steps:
+
+1. Open MetaMask and click on the network dropdown at the top.
+2. Select **Add a network** (or **Add a network manually**).
+3. Enter the following details for the localhost Hardhat network:
+    - Network Name: Hardhat Localhost 
+    - RPC URL: http://127.0.0.1:8545 
+    - Chain ID: 31337 
+    - Currency Symbol: ETH
+4. Click **Save**.  
+Your MetaMask wallet is now configured to connect to your local Hardhat network.
+
+#### **2. Add the Sepolia Testnet**
+The Sepolia testnet is used for testing in a real-world-like environment. Follow these steps:
+
+1. Open MetaMask and click on the network dropdown at the top left.
+2. Select **Show terst networks**.
+3. Connect
+
+Your MetaMask wallet is now configured to connect to the Sepolia testnet.
+
+#### **3. Switch Between Networks**
+- To switch networks, open MetaMask, click the network dropdown, and select either **Hardhat Localhost** or **Sepolia Testnet**.
+- Ensure the correct network is selected before interacting with your smart contracts.
+
+---
+
+You’re now ready to test on both your local Hardhat network and the Sepolia testnet!
 
 ## 🚀 Features
 

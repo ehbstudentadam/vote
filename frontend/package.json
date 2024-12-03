@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "build": "nuxt build",
+    "deploy": "gh-pages -d .output/public -t true",
     "dev": "nuxt dev",
     "generate": "nuxt generate",
     "preview": "nuxt preview",
@@ -14,9 +15,12 @@
     "@nuxt/fonts": "^0.10.2",
     "@tanstack/vue-query": ">=5.45.0",
     "@wagmi/vue": "latest",
-    "nuxt": "^3.11.2",
+    "nuxt": "^3.14.1592",
     "viem": "latest",
     "vue": ">=3.4.21",
     "vue-router": "^4.3.2"
+  },
+  "devDependencies": {
+    "gh-pages": "^6.2.0"
   }
 }
