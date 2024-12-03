@@ -4,7 +4,6 @@ import { readContract } from '@wagmi/core';
 import { config } from '~/wagmi';
 import UserRegistrationArtifact from '~/artifacts/UserRegistration.json';
 import { useAccount } from '@wagmi/vue';
-import { watch } from 'vue';
 
 // Extract the ABI from the contract artifact
 const UserRegistrationABI = UserRegistrationArtifact.abi;
@@ -49,7 +48,7 @@ function checkRegistrationStatus(address: string): Promise<'user' | 'instance' |
             console.error('Error checking isInstance status:', error);
           })
           .finally(() => {
-            resolve(status); // Resolve the status after both checks
+            resolve(status);
           });
       });
   });
