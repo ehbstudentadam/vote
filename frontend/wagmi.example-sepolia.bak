@@ -3,7 +3,7 @@ import { mainnet, optimism, sepolia, hardhat } from '@wagmi/vue/chains'; // Impo
 import { injected, metaMask, walletConnect } from '@wagmi/vue/connectors';
 
 export const config = createConfig({
-  chains: [mainnet, sepolia, optimism, hardhat],
+  chains: [mainnet, sepolia, optimism],
   connectors: [
     injected(),
     // walletConnect({
@@ -16,7 +16,6 @@ export const config = createConfig({
   }),
   //ssr: true,
   transports: {
-    [hardhat.id]: http('http://127.0.0.1:8545'), 
     [sepolia.id]: http(),
     [mainnet.id]: http(),    
     [optimism.id]: http(),
