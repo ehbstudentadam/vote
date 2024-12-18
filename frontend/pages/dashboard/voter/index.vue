@@ -22,7 +22,7 @@
 
 <script setup>
 definePageMeta({
-  middleware: 'auth',
+    middleware: 'auth',
 });
 
 import { ref, onMounted } from 'vue';
@@ -123,7 +123,6 @@ const fetchPollAddresses = (callback) => {
         });
 };
 
-// Fetch poll details and check eligibility
 const fetchPollDetails = (pollAddress, callback) => {
     const pollDetails = {};
     readContract(config, {
@@ -140,9 +139,15 @@ const fetchPollDetails = (pollAddress, callback) => {
             });
         })
         .then((endDate) => {
+            const endDateTimestamp = Number(endDate) * 1000; // Convert to milliseconds
             pollDetails.endDate = endDate
-                ? new Date(Number(endDate) * 1000).toLocaleString()
+                ? new Date(endDateTimestamp).toLocaleString()
                 : 'N/A';
+
+            // Check if the poll is finalized by date
+            const now = Date.now();
+            pollDetails.isFinalized = endDateTimestamp < now;
+
             return readContract(config, {
                 address: pollAddress,
                 abi: pollABI,
@@ -193,6 +198,15 @@ const fetchPollDetails = (pollAddress, callback) => {
         });
 
     function checkEligibility() {
+        // If the poll is finalized, set isEligible to false
+        if (pollDetails.isFinalized) {
+            pollDetails.isEligible = false;
+            pollDetails.address = pollAddress;
+            callback(pollDetails);
+            return;
+        }
+
+        // Otherwise, check eligibility using the contract
         readContract(config, {
             address: subscriptionAddress,
             abi: subscriptionABI,
@@ -213,6 +227,7 @@ const fetchPollDetails = (pollAddress, callback) => {
             });
     }
 };
+
 
 
 // Fetch all polls
