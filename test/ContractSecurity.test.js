@@ -3,20 +3,41 @@ const { expect } = require("chai");
 const { ethers } = require("hardhat");
 
 // Define the private key directly (be sure it's the correct key for the testing account)
+// First user's wallet (Account #0)
 const userPrivateKey1 = "0x59c6995e998f97a5a004497f24a23c0a9e11b8c1a5f6f3a0913a78e37744f10b";
-const userWallet1 = new ethers.Wallet(userPrivateKey1).connect(ethers.provider);
+const userWallet1 = new ethers.Wallet(userPrivateKey1, ethers.provider);
+// Second user's wallet (Account #1)
+const userPrivateKey2 = "0x5f3f650e7b0bde4a4f8e1891dd6d3b60d1a99fe3b511ad2d6d74d5a75f7e666f";
+const userWallet2 = new ethers.Wallet(userPrivateKey2, ethers.provider);
+// Third user's wallet (Account #2)
+const instancePrivateKey1 = "0x47c99c2b8ff3e47a16ef9313fd1a9dbaf701fdb3c621ec535fd81505d40f792f";
+const instanceWallet1 = new ethers.Wallet(instancePrivateKey1, ethers.provider);
+// Fourth user's wallet (Account #3)
+const instancePrivateKey2 = "0x8b3a350cf5c34c9194ca71fc3d5ba23715f6c12a4565a5d1f850444cde644cf8";
+const instanceWallet2 = new ethers.Wallet(instancePrivateKey2, ethers.provider);
 
-
-describe("Contract Interactions Test Suite", function () {
-    let deployer, user1, user2, instance1;
-    let accessControlManager, pollFactory, tokenDistribution, userRegistration, subscription, poll;
+describe("Contract Security Test", function () {
+    let deployer;
+    let accessControlManager, pollFactory, tokenDistribution, userRegistration, subscription;
 
     before(async function () {
         [deployer, user1, user2, instance1] = await ethers.getSigners();
 
-        // Send some ETH to userWallet1 for transaction fees
+        // Send some ETH for transaction fees
         await deployer.sendTransaction({
             to: userWallet1.address,
+            value: ethers.parseEther("1.0"), // Send 1 ETH for gas fees
+        });
+        await deployer.sendTransaction({
+            to: userWallet2.address,
+            value: ethers.parseEther("1.0"), // Send 1 ETH for gas fees
+        });
+        await deployer.sendTransaction({
+            to: instanceWallet1.address,
+            value: ethers.parseEther("1.0"), // Send 1 ETH for gas fees
+        });
+        await deployer.sendTransaction({
+            to: instanceWallet2.address,
             value: ethers.parseEther("1.0"), // Send 1 ETH for gas fees
         });
 
@@ -31,9 +52,10 @@ describe("Contract Interactions Test Suite", function () {
         await assignRoles();
 
         // Register instance and user
-        await userRegistration.connect(instance1).registerInstance(instance1.address, "InstanceOrg", "contact@example.com");
-        await userRegistration.connect(user1).registerUser(user1.address, "UserOne", 30, "user1@example.com");
         await userRegistration.connect(userWallet1).registerUser(userWallet1.address, "UserWalletOne", 30, "userwallet1@example.com");
+        await userRegistration.connect(userWallet2).registerUser(userWallet2.address, "UserWalletTwo", 30, "userwallet2@example.com");
+        await userRegistration.connect(instanceWallet1).registerInstance(instanceWallet1.address, "InstanceWalletOne", "instancewallet1@example.com");
+        await userRegistration.connect(instanceWallet2).registerInstance(instanceWallet2.address, "InstanceWalletTwo", "instancewallet2@example.com");
     });
 
     async function deployContract(contractName, ...args) {
@@ -60,8 +82,6 @@ describe("Contract Interactions Test Suite", function () {
             { role: roles.DISTRIBUTOR_ROLE, address: await tokenDistribution.getAddress() },
             { role: roles.DISTRIBUTOR_ROLE, address: await pollFactory.getAddress() },
             { role: roles.INSTANCE_ROLE, address: await pollFactory.getAddress() },
-            // { role: roles.DISTRIBUTOR_ROLE, address: await voting.getAddress() },
-            // { role: roles.USER_ROLE, address: await voting.getAddress() },
             { role: roles.USER_ROLE, address: await subscription.getAddress() },
             { role: roles.DISTRIBUTOR_ROLE, address: await subscription.getAddress() }
         ];
@@ -102,43 +122,6 @@ describe("Contract Interactions Test Suite", function () {
         expect(userSubscribedEvent.args.tokenAmount).to.equal(minTokensRequired);
     }
 
-    //to be removed
-    async function getPermitSignature(owner, spender, value, deadline, token, nonce) {
-        const domain = {
-            name: await token.name(),
-            version: "1",
-            chainId: (await ethers.provider.getNetwork()).chainId,
-            verifyingContract: await token.getAddress(),
-        };
-
-        const types = {
-            Permit: [
-                { name: "owner", type: "address" },
-                { name: "spender", type: "address" },
-                { name: "value", type: "uint256" },
-                { name: "nonce", type: "uint256" },
-                { name: "deadline", type: "uint256" }
-            ]
-        };
-
-        const message = {
-            owner: await owner.getAddress(),
-            spender,
-            value,
-            nonce,
-            deadline
-        };
-
-        const signature = await owner.signTypedData(domain, types, message);
-        const parsedSignature = ethers.Signature.from(signature);
-
-        return {
-            v: parsedSignature.v,
-            r: parsedSignature.r,
-            s: parsedSignature.s
-        };
-    }
-
     async function createPoll(instance, options, title, age, location, minTokensRequired, totalTokenSupply) {
         const endDate = Math.floor(Date.now() / 1000) + 3600;
         await pollFactory.connect(instance).createPoll(title, options, endDate, age, location, minTokensRequired, totalTokenSupply);
@@ -146,16 +129,39 @@ describe("Contract Interactions Test Suite", function () {
         return await ethers.getContractAt("Poll", pollAddress);
     }
 
-    it("Should register an instance and user", async function () {
-        const isInstance = await userRegistration.isInstance(instance1.address);
-        const isUser = await userRegistration.isUser(user1.address);
+    it("Should register 2 instances and 2 users", async function () {
+        const isInstance1 = await userRegistration.isInstance(instanceWallet1.address);
+        const isInstance2 = await userRegistration.isInstance(instanceWallet2.address);
+        const isUser1 = await userRegistration.isUser(userWallet1.address);
+        const isUser2 = await userRegistration.isUser(userWallet2.address);
 
-        expect(isInstance).to.be.true;
-        expect(isUser).to.be.true;
+        expect(isInstance1).to.be.true;
+        expect(isInstance2).to.be.true;
+        expect(isUser1).to.be.true;
+        expect(isUser2).to.be.true;
+    });
+
+    it("Should not allow double registrations", async function () {
+        // Attempt to register a user wallet (already registered as USER_ROLE) as an instance
+        await expect(userRegistration.connect(userWallet1).registerInstance(userWallet1.address, "OrgFromUserWalletOne", "contactFromUserWalletOne@example.com")
+        ).to.be.revertedWith('User already has a different role assigned');
+
+        // Attempt to register an instance wallet (already registered as INSTANCE_ROLE) as a user
+        await expect(
+            userRegistration.connect(instanceWallet1).registerUser(instanceWallet1.address, "UserFromInstanceWalletOne", 25, "userFromInstanceWalletOne@example.com")
+        ).to.be.revertedWith('User already has a different role assigned');
+
+        await expect(
+            userRegistration.connect(userWallet1).registerUser(userWallet1.address, "UserWalletOne", 30, "userwallet1@example.com")
+        ).to.be.revertedWith("User already registered");
+
+        await expect(
+            userRegistration.connect(instanceWallet1).registerInstance(instanceWallet1.address, "InstanceWalletOne", "instancewallet1@example.com")
+        ).to.be.revertedWith("Instance already registered");
     });
 
     it("Should allow an instance to create a poll", async function () {
-        const poll = await createPoll(instance1, ["Option1", "Option2"], "Sample Poll", 18, "belgium", 100, 1000);
+        const poll = await createPoll(instanceWallet1, ["Option1", "Option2"], "instanceWallet1 Poll 1", 18, "belgium", 100, 1000);
         const [pollMinAge, pollLocation, pollMinTokensRequired] = await poll.getEligibility();
 
         expect(pollMinAge).to.equal(18);
@@ -163,9 +169,15 @@ describe("Contract Interactions Test Suite", function () {
         expect(pollMinTokensRequired).to.equal(100);
     });
 
+    it("Should deny a user to create a poll", async function () {
+        await expect(
+            pollFactory.connect(userWallet1).createPoll("User Attempted Poll", ["OptionA", "OptionB"], Math.floor(Date.now() / 1000) + 3600, 21, "countryX", 50, 500)
+        ).to.be.revertedWith("Access denied: Incorrect role");
+    });
+
     it("Should allow a user to vote on a poll", async function () {
         // Create a new poll and subscribe userWallet1 to it
-        const poll = await createPoll(instance1, ["Option1", "Option2"], "Sample Poll", 18, "belgium", 100, 1000);
+        const poll = await createPoll(instanceWallet2, ["Option1", "Option2"], "instanceWallet2 Poll 1", 18, "belgium", 100, 1000);
         const pollAddress = await poll.getAddress();
 
         // Derive pollId based on pollAddress
@@ -213,5 +225,19 @@ describe("Contract Interactions Test Suite", function () {
         expect(pollBalanceAfterVote).to.equal(1000 - 100 + (40 + 60));
     });
 
+    it("Should deny an Instance to subscribe or vote on a poll", async function () {
+        // First, create a new poll as an instance
+        const poll = await createPoll(instanceWallet2, ["Option1", "Option2"], "instanceWallet2 Poll 2", 18, "belgium", 100, 1000);
+        const pollAddress = await poll.getAddress();
 
+        // Attempt to have the instance subscribe to the poll
+        await expect(
+            subscription.connect(instanceWallet2).subscribeUser(pollAddress, instanceWallet2.address)
+        ).to.be.revertedWith("Access denied: Incorrect role");
+
+        // Attempt to have the instance cast a vote in the poll
+        await expect(
+            poll.connect(instanceWallet2).castVote(0, 10)
+        ).to.be.revertedWith("Access denied: Incorrect role");
+    });
 });
