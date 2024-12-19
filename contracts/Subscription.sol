@@ -106,6 +106,12 @@ contract Subscription {
     ) public view returns (bool) {
         // Get eligibility requirements from the Poll contract
         Poll pollContract = Poll(poll);
+
+        // Check if the poll is finalized
+        if (pollContract.isFinalized()) {
+            return false;
+        }
+        
         (uint256 minAge, , ) = pollContract.getEligibility();
 
         // Get user data from the UserRegistration contract

@@ -46,7 +46,7 @@ contract Poll is IERC1155Receiver, ERC165 {
 
     // Modifier to ensure the poll is active (not ended or finalized)
     modifier onlyActivePoll() {
-        require(block.timestamp <= endDate, "Poll has ended");
+        //require(block.timestamp <= endDate, "Poll has ended");
         require(!isFinalized, "Poll is already finalized");
         _;
     }
@@ -131,7 +131,7 @@ contract Poll is IERC1155Receiver, ERC165 {
         uint256 amount
     )
         external
-        //onlyActivePoll
+        onlyActivePoll
         onlyRoleFromManager(accessControlManager.USER_ROLE())
     {
         require(optionIndex < votingOptions.length, "Invalid voting option");
@@ -169,7 +169,7 @@ contract Poll is IERC1155Receiver, ERC165 {
         uint256[] memory amounts
     )
         external
-        //onlyActivePoll
+        onlyActivePoll
         onlyRoleFromManager(accessControlManager.USER_ROLE())
     {
         require(
